@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
-import { importerIxbrlLink, importerXbrlFil } from '../lib/ixbrlImport.js'
+import { importerIxbrlLink, importerXbrlFil, soegRegnskaber } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
 import { FIELD_MAP } from '../lib/model.js'
 
@@ -12,6 +12,8 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
   const [arbejder, setArbejder] = useState(false)
   const [link, setLink] = useState('')
   const [over, setOver] = useState(false)
+  const [cvr, setCvr] = useState('')
+  const [traf, setTraf] = useState(null)
   const filInput = useRef(null)
 
   const fordeling = useMemo(() => (fund.length ? fordelKolonner(fund) : null), [fund])
@@ -59,6 +61,40 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
       }
     } catch (e) {
       setStatus({ type: 'fejl', tekst: e.message })
+    }
+    setArbejder(false)
+  }
+
+  async function soeg (e) {
+    e.preventDefault()
+    const rent = cvr.replace(/\D/g, '')
+    if (rent.length !== 8) { setStatus({ type: 'fejl', tekst: 'Et CVR-nummer er otte cifre.' }); return }
+    setArbejder(true); setStatus(null); setTraf(null)
+    try {
+      const liste = await soegRegnskaber(rent)
+      if (!liste.length) setStatus({ type: 'advarsel', tekst: 'Der blev ikke fundet offentliggjorte regnskaber på det CVR-nummer.' })
+      setTraf(liste)
+    } catch (e) {
+      setStatus({ type: 'fejl', tekst: e.message })
+    }
+    setArbejder(false)
+  }
+
+  async function hentFraTraef (liste) {
+    setArbejder(true); setStatus(null)
+    const nye = []
+    for (const r of liste) {
+      if (!r.xbrl) continue
+      try {
+        const d = await importerIxbrlLink(r.xbrl)
+        nye.push({ ...d, kilde: `Årsrapport ${r.aar}` })
+      } catch (e) {
+        setStatus({ type: 'fejl', tekst: `Årsrapport ${r.aar}: ${e.message}` })
+      }
+    }
+    if (nye.length) {
+      setFund(f => [...f, ...nye])
+      setDataset(d => ({ ...d, virksomhed: d.virksomhed || nye[0].virksomhed || '' }))
     }
     setArbejder(false)
   }
@@ -116,19 +152,70 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
         </div>
 
         <div className="kort">
-          <h3>Adresse på iXBRL-dokument</h3>
-          <p className="hjaelp">Fx et offentliggjort regnskab fra regnskaber.virk.dk. Adressen hentes gennem sidens egen serverfunktion.</p>
-          <form onSubmit={haandterLink}>
-            <label className="felt" htmlFor="ixbrl-url">Adresse</label>
-            <input id="ixbrl-url" type="url" value={link} placeholder="https://regnskaber.virk.dk/…" onChange={e => setLink(e.target.value)} />
+          <h3>Slå op på CVR-nummer</h3>
+          <p className="hjaelp">Den nemmeste vej: appen finder selv de offentliggjorte årsrapporter og deres XBRL-dokumenter.</p>
+          <form onSubmit={soeg}>
+            <label className="felt" htmlFor="cvr">CVR-nummer</label>
+            <input id="cvr" type="text" inputMode="numeric" value={cvr} placeholder="12345678"
+              onChange={e => setCvr(e.target.value)} />
             <div style={{ marginTop: 12 }}>
-              <button className="knap lys" type="submit" disabled={arbejder || !link.trim()}>Hent regnskab</button>
+              <button className="knap lys" type="submit" disabled={arbejder}>
+                {arbejder ? 'Søger …' : 'Find årsrapporter'}
+              </button>
             </div>
           </form>
+
+          <details style={{ marginTop: 16 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--daempet)' }}>Eller indsæt en dokumentadresse direkte</summary>
+            <form onSubmit={haandterLink} style={{ marginTop: 10 }}>
+              <input type="url" value={link} placeholder="http://regnskaber.virk.dk/12345678/….xml"
+                onChange={e => setLink(e.target.value)} />
+              <p className="hjaelp" style={{ marginTop: 6 }}>
+                Adressen skal pege på selve XBRL-dokumentet — typisk en .xml-fil. En side på
+                datacvr.virk.dk er en visningsside og kan ikke hentes.
+              </p>
+              <button className="knap lys" type="submit" disabled={arbejder || !link.trim()} style={{ marginTop: 8 }}>Hent regnskab</button>
+            </form>
+          </details>
         </div>
       </div>
 
       {status && <div className={'besked ' + (status.type === 'info' ? '' : status.type)}>{status.tekst}</div>}
+
+      {traf && traf.length > 0 && (
+        <div className="kort">
+          <h3>Offentliggjorte årsrapporter</h3>
+          <p className="hjaelp">Vælg de tre nyeste, eller hent en enkelt.</p>
+          <div className="tabel-omslag">
+            <table className="data">
+              <thead>
+                <tr><th>Regnskabsår</th><th>Periode</th><th>Offentliggjort</th><th>Format</th><th /></tr>
+              </thead>
+              <tbody>
+                {traf.map((r, i) => (
+                  <tr key={i}>
+                    <td className="tal">{r.aar || '–'}</td>
+                    <td style={{ fontSize: 13 }}>{r.start && r.slut ? `${r.start} → ${r.slut}` : '–'}</td>
+                    <td style={{ fontSize: 13 }}>{(r.offentliggjort || '').slice(0, 10)}</td>
+                    <td style={{ fontSize: 12 }}>
+                      {r.xbrl ? 'XBRL' : ''}{r.xbrl && r.pdf ? ' · ' : ''}
+                      {r.pdf && <a href={r.pdf} target="_blank" rel="noreferrer">PDF</a>}
+                    </td>
+                    <td className="num">
+                      <button className="knap lys" style={{ padding: '4px 10px', fontSize: 12 }}
+                        disabled={!r.xbrl || arbejder} onClick={() => hentFraTraef([r])}>Hent</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button className="knap primaer" style={{ marginTop: 12 }} disabled={arbejder}
+            onClick={() => hentFraTraef(traf.filter(r => r.xbrl).slice(0, 3))}>
+            Hent de tre nyeste med XBRL
+          </button>
+        </div>
+      )}
 
       {fordeling && <Fordelingskort fordeling={fordeling} anvend={anvend} />}
 

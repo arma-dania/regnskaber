@@ -127,17 +127,22 @@ export function parseXbrlDokument (tekst, kilde = '') {
 }
 
 /**
- * Henter en iXBRL-adresse gennem serverfunktionen, fordi CVR-serveren
- * ikke tillader kald direkte fra browseren.
+ * Henter en iXBRL-adresse gennem serverfunktionen, fordi Virk hverken sender
+ * CORS-headere eller svarer på kald uden browserlignende headere.
  */
 export async function importerIxbrlLink (url) {
   const svar = await fetch('/.netlify/functions/ixbrl?url=' + encodeURIComponent(url))
-  if (!svar.ok) {
-    const besked = await svar.text()
-    throw new Error(`Kunne ikke hente dokumentet (${svar.status}). ${besked.slice(0, 200)}`)
-  }
   const tekst = await svar.text()
+  if (!svar.ok) throw new Error(tekst.trim() || `Kunne ikke hente dokumentet (${svar.status}).`)
   return parseXbrlDokument(tekst, url)
+}
+
+/** Slår offentliggjorte årsrapporter op på CVR-nummer. */
+export async function soegRegnskaber (cvr) {
+  const svar = await fetch('/.netlify/functions/regnskaber?cvr=' + encodeURIComponent(cvr))
+  const data = await svar.json().catch(() => ({ fejl: 'Uventet svar fra serveren.' }))
+  if (!svar.ok || data.fejl) throw new Error(data.fejl || `Opslaget fejlede (${svar.status}).`)
+  return data.regnskaber || []
 }
 
 export async function importerXbrlFil (file) {
