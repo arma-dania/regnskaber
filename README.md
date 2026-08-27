@@ -92,6 +92,13 @@ nyeste XBRL-dokumenter med ét klik. Det er den pålidelige vej ind.
 indlæsningen er pålidelig. Mapningen står i `src/lib/ixbrlImport.js`. Kun kontekster uden
 dimensioner bruges, så segmentoplysninger ikke forstyrrer hovedtallene.
 
+Nogle regnskaber tagger aldrig en samlet personaleomkostning – kun de enkeltposter,
+årsregnskabsloven kræver specifikation af (§98a): løn, pension og andre omkostninger til
+social sikring, plus evt. andre personaleomkostninger. Findes totalen ikke, lægger appen
+selv disse fire poster sammen. Det er et bedste bud på taksonomiens navne for
+enkeltposterne, så tjek tallet mod regnskabets note om personaleomkostninger, hvis det er
+muligt.
+
 ## Fire balancedatoer, tre analyseår
 
 Et årsregnskab indeholder to år. Tre regnskaber giver derfor fire balancedatoer, og
