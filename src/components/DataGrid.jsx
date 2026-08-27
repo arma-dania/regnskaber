@@ -1,8 +1,12 @@
 import { useState } from 'react'
-import { FIELDS, SECTIONS, PRIMO_FIELDS, withDerived, validate } from '../lib/model.js'
+import { FIELDS, SECTIONS, PRIMO_FIELDS, KOMPONENT_LABELS, withDerived, validate } from '../lib/model.js'
 import { parseDanskTal } from '../lib/pdfImport.js'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
+
+const sammensatForklaring = grupper => 'Lagt sammen af regnskabets egne poster: ' +
+  Object.entries(grupper).map(([g, v]) => `${KOMPONENT_LABELS[g] || g} ${visTal(v)}`).join(', ') +
+  '. Kan ikke rettes her — ret i så fald enkeltposterne i selve regnskabet.'
 
 export default function DataGrid ({ dataset, setDataset }) {
   const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primo || {}).length > 0)
@@ -47,7 +51,9 @@ export default function DataGrid ({ dataset, setDataset }) {
         Kursiverede grå tal er beregnet ud fra posterne over dem. Står der et tal med okker,
         kommer det fra regnskabet eller fra dig, og det bliver aldrig regnet om — bruttofortjeneste
         i et klasse B-regnskab er jo ikke altid omsætning minus vareforbrug. Tøm feltet, hvis posten
-        alligevel skal beregnes. Omkostninger indtastes som positive tal.
+        alligevel skal beregnes. Omkostninger indtastes som positive tal. Tal markeret med Σ er lagt
+        sammen af flere poster fra regnskabet under indlæsningen og kan ikke rettes her — hold musen
+        over tallet for at se hvilke poster.
       </p>
 
       <div className="kort">
@@ -126,6 +132,20 @@ export default function DataGrid ({ dataset, setDataset }) {
                       {dataset.aar.map((y, i) => {
                         const eksplicit = y.values[f.key] != null
                         const vaerdi = eksplicit ? y.values[f.key] : beregnede[i][f.key]
+                        const sammensat = y.sammensat?.[f.key]
+                        if (sammensat) {
+                          return (
+                            <td key={i} className="num">
+                              <span
+                                className="sammensat-vaerdi" tabIndex={0}
+                                title={sammensatForklaring(sammensat)}
+                                aria-label={`${f.label}, ${y.label || 'år ' + (i + 1)}: ${visTal(vaerdi)}. ${sammensatForklaring(sammensat)}`}
+                              >
+                                Σ {visTal(vaerdi)}
+                              </span>
+                            </td>
+                          )
+                        }
                         return (
                           <td key={i} className="num">
                             <input

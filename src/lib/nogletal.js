@@ -69,8 +69,16 @@ export function buildContext (dataset, index) {
       const b = dataset.aar[dataset.indeksBasisaar ?? 0]
       return withDerived(b.values, b.manual)
     })(),
-    indeksFelt: dataset.indeksFelt || 'omsaetning'
+    indeksFelter: (dataset.indeksFelter && dataset.indeksFelter.length) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
   }
+}
+
+// Summerer de valgte poster for ét års beregningsgrundlag. Ingen af posterne
+// udfyldt giver null, så nøgletallet vises som "kan ikke beregnes".
+function summerIndeksPoster (grundlag, felter) {
+  const fundne = felter.filter(k => grundlag[k] != null)
+  if (!fundne.length) return null
+  return fundne.reduce((sum, k) => sum + grundlag[k], 0)
 }
 
 /**
@@ -107,8 +115,8 @@ export const NOGLETAL = [
     calc: c => ({ num: c.v.bruttoresultat, den: c.v.omsaetning, pct: true }) },
 
   { nr: 8, omraade: 'indtjening', navn: 'Indekstal', enhed: 'indeks', taeller: 'Årets tal · 100', naevner: 'Basisårets tal', bedre: 'op',
-    forklaring: 'Indeksberegninger supplerer tallenes udviklingsretning og -hastighed. Vælg selv hvilken post der indekseres.',
-    calc: c => ({ num: c.v[c.indeksFelt], den: c.basis[c.indeksFelt], pct: true }) },
+    forklaring: 'Indeksberegninger supplerer tallenes udviklingsretning og -hastighed. Vælg selv hvilke poster der indekseres — vælges flere, lægges de sammen.',
+    calc: c => ({ num: summerIndeksPoster(c.v, c.indeksFelter), den: summerIndeksPoster(c.basis, c.indeksFelter), pct: true }) },
 
   { nr: 9, omraade: 'indtjening', navn: 'Driftsmæssig gearing', enhed: '%', taeller: 'Kapacitetsomkostninger · 100', naevner: 'Samlede driftsomkostninger', bedre: 'neutral',
     forklaring: 'Viser kapacitetsomkostningernes andel af de samlede driftsomkostninger.',
