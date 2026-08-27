@@ -36,7 +36,30 @@ const XBRL_MAP = {
 
 const POSITIVE = ['vareforbrug', 'personaleomkostninger', 'andreEksterne', 'afskrivninger', 'finansielleOmkostninger', 'skat']
 
+// Nogle regnskaber tagger aldrig en samlet personaleomkostning – kun de
+// enkeltposter, årsregnskabsloven kræver specifikation af (§98a): løn,
+// pension og andre omkostninger til social sikring, plus evt. "andre
+// personaleomkostninger". Findes totalen ikke, lægges én post fra hver
+// gruppe sammen i stedet. Grupperne holdes adskilt, så to navne for det
+// samme (fx WagesAndSalaries og Salaries) ikke tælles dobbelt.
+const KOMPONENTER = {
+  personaleomkostninger: {
+    loen: ['WagesAndSalaries', 'Salaries', 'WagesSalariesAndRemunerations'],
+    pension: ['PensionCosts', 'PensionContributions', 'PostemploymentBenefitExpense', 'DefinedContributionPlanCostRecognisedAsExpense'],
+    socialSikring: ['OtherSocialSecurityContributions', 'SocialSecurityContributions', 'SocialSecurityCosts'],
+    andet: ['OtherEmployeeBenefitsExpense', 'OtherStaffCosts', 'OtherEmployeeExpense', 'OtherPersonnelExpenses']
+  }
+}
+
 const NAVN_TIL_KEY = new Map(Object.entries(XBRL_MAP).flatMap(([key, navne]) => navne.map((n, i) => [n.toLowerCase(), { key, prioritet: i }])))
+
+const NAVN_TIL_KOMPONENT = new Map(
+  Object.entries(KOMPONENTER).flatMap(([key, grupper]) =>
+    Object.entries(grupper).flatMap(([gruppe, navne]) =>
+      navne.map((n, i) => [n.toLowerCase(), { key, gruppe, prioritet: i }])
+    )
+  )
+)
 
 function localName (el) {
   return (el.localName || el.nodeName.split(':').pop() || '').toLowerCase()
@@ -85,6 +108,19 @@ export function parseXbrlDokument (tekst, kilde = '') {
     k.prioriteter[key] = prioritet
   }
 
+  const registrerKomponent = (dato, key, gruppe, vaerdi, prioritet) => {
+    if (!dato) return
+    if (!kolonner.has(dato)) kolonner.set(dato, { values: {}, prioriteter: {} })
+    const k = kolonner.get(dato)
+    k.komponenter = k.komponenter || {}
+    k.komponentPrioriteter = k.komponentPrioriteter || {}
+    const grupper = (k.komponenter[key] = k.komponenter[key] || {})
+    const grupperPrioriteter = (k.komponentPrioriteter[key] = k.komponentPrioriteter[key] || {})
+    if (grupper[gruppe] != null && grupperPrioriteter[gruppe] <= prioritet) return
+    grupper[gruppe] = Math.abs(vaerdi)
+    grupperPrioriteter[gruppe] = prioritet
+  }
+
   const alle = [...doc.getElementsByTagName('*')]
   alle.forEach(el => {
     const ln = localName(el)
@@ -96,7 +132,8 @@ export function parseXbrlDokument (tekst, kilde = '') {
     if (!konceptNavn) return
 
     const traef = NAVN_TIL_KEY.get(konceptNavn.toLowerCase())
-    if (!traef) return
+    const komponentTraef = traef ? null : NAVN_TIL_KOMPONENT.get(konceptNavn.toLowerCase())
+    if (!traef && !komponentTraef) return
 
     const ctxId = el.getAttribute('contextRef')
     const ctx = kontekster[ctxId]
@@ -109,7 +146,19 @@ export function parseXbrlDokument (tekst, kilde = '') {
     if ((el.getAttribute('sign') || '') === '-') raa = -raa
 
     const dato = ctx.slut || ctx.instant
-    registrer(dato, traef.key, raa, traef.prioritet)
+    if (traef) registrer(dato, traef.key, raa, traef.prioritet)
+    else registrerKomponent(dato, komponentTraef.key, komponentTraef.gruppe, raa, komponentTraef.prioritet)
+  })
+
+  // Findes der ingen samlet post (fx personaleomkostninger), men mindst én
+  // delkomponent (løn, pension, …), bruges summen af delkomponenterne.
+  kolonner.forEach(k => {
+    Object.keys(KOMPONENTER).forEach(key => {
+      if (k.values[key] != null) return
+      const vaerdier = Object.values(k.komponenter?.[key] || {})
+      if (!vaerdier.length) return
+      k.values[key] = vaerdier.reduce((sum, v) => sum + v, 0)
+    })
   })
 
   const sorteret = [...kolonner.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
