@@ -37,6 +37,18 @@ export default async (request) => {
     return tekstsvar(`Værten ${maal.hostname} er ikke på listen. Tilføj den i netlify/functions/ixbrl.js, eller sæt TILLAD_ALLE_VAERTER=true.`, 403)
   }
 
+  // datacvr.virk.dk/gateway/… er ikke en dokumentadresse, men et internt API,
+  // der kun svarer inde fra en rigtig browsersession på datacvr.virk.dk (med
+  // cookies og session-token). Det kan aldrig besvares fra en serverfunktion,
+  // uanset hvilke headere der sendes, så det er meningsløst at prøve.
+  if (maal.hostname.endsWith('virk.dk') && maal.pathname.includes('/gateway/')) {
+    return tekstsvar(
+      'Denne adresse er et gateway-kald (datacvr.virk.dk/gateway/…), som kun virker inde fra en ' +
+      'browsersession på Virks egen side — det kan ikke hentes gennem en serverfunktion. ' +
+      'Brug "Find årsrapporter" med CVR-nummeret i stedet; den finder de direkte dokumentadresser ' +
+      '(regnskaber.virk.dk/<cvr>/<fil>.xml), som proxyen kan hente.', 400)
+  }
+
   // Dokumenterne på regnskaber.virk.dk udstilles over http. Nogle netværk
   // afviser det, andre afviser https — derfor prøves begge.
   const forsoeg = [maal.href]

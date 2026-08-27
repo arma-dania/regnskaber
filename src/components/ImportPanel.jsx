@@ -171,8 +171,9 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
               <input type="url" value={link} placeholder="http://regnskaber.virk.dk/12345678/….xml"
                 onChange={e => setLink(e.target.value)} />
               <p className="hjaelp" style={{ marginTop: 6 }}>
-                Adressen skal pege på selve XBRL-dokumentet — typisk en .xml-fil. En side på
-                datacvr.virk.dk er en visningsside og kan ikke hentes.
+                Adressen skal pege på selve XBRL-dokumentet — typisk en .xml-fil, fx
+                http://regnskaber.virk.dk/12345678/….xml. Et link kopieret fra en "download"-knap på
+                datacvr.virk.dk (adresser med /gateway/) virker ikke her — brug CVR-opslaget ovenfor i stedet.
               </p>
               <button className="knap lys" type="submit" disabled={arbejder || !link.trim()} style={{ marginTop: 8 }}>Hent regnskab</button>
             </form>
