@@ -59,6 +59,20 @@ og manuel indtastning kører helt i browseren.
 | Navn | Virkning |
 | --- | --- |
 | `TILLAD_ALLE_VAERTER` | Sæt til `true`, hvis proxyen skal kunne hente iXBRL fra andre værter end de danske regnskabsservere. Lad den være slået fra på en offentlig side. |
+| `VIRK_BRUGER`, `VIRK_KODE` | Kun nødvendige, hvis Erhvervsstyrelsens distributionsindeks kræver legitimation. Rekvireres hos Erhvervsstyrelsen på 35 29 10 00. |
+
+### Fejlsøgning: 403 fra Virk
+
+Virks WAF afviser kald uden browserlignende headere, og proxyen sender dem derfor.
+Kommer der stadig 403, peger adressen sandsynligvis på en visningsside frem for selve
+dokumentet. Test adressen direkte:
+
+```
+https://DIT-SITE.netlify.app/.netlify/functions/ixbrl?url=ADRESSE&debug=1
+```
+
+Med `debug=1` returneres status, indholdstype og de første 800 tegn, så det er til at se,
+hvad Virk faktisk sender tilbage.
 
 ## Sådan læses regnskaberne ind
 
@@ -69,6 +83,10 @@ automatisk; en enkelt kolonne kan altid flyttes manuelt, hvis genkendelsen ramme
 Genkendelsen rammer ikke altid. Årsrapporter sættes op vidt forskelligt, og tal i noter kan
 forveksles med tal i hovedopgørelsen. Derfor er trin 2 et almindeligt regneark: alt kan rettes,
 og balancen kontrolleres undervejs. Betragt PDF-indlæsningen som et udkast, ikke som facit.
+
+**CVR-opslag.** Skriv virksomhedens CVR-nummer, og appen slår de offentliggjorte årsrapporter
+op i Erhvervsstyrelsens distributionsindeks, viser dem med regnskabsperiode og henter de tre
+nyeste XBRL-dokumenter med ét klik. Det er den pålidelige vej ind.
 
 **iXBRL.** Her er tallene mærket op med begreber fra den danske årsrapporttaksonomi, så
 indlæsningen er pålidelig. Mapningen står i `src/lib/ixbrlImport.js`. Kun kontekster uden
@@ -110,7 +128,8 @@ src/lib/fordeling.js    Fordeling af fire balancedatoer på tre år plus primo
 src/lib/ixbrlImport.js  Mapping fra fsa-taksonomien til analyseformen
 src/lib/exportExcel.js  Fire ark: analyseform, nøgletal, beregningsgrundlag, definitioner
 src/lib/exportWord.js   Rapport med tabeller, grafer og kommentarfelter
-netlify/functions/      Proxy, der henter iXBRL-dokumenter
+netlify/functions/ixbrl.js       Proxy, der henter iXBRL-dokumenter
+netlify/functions/regnskaber.js  Opslag af årsrapporter på CVR-nummer
 ```
 
 ## Licens
