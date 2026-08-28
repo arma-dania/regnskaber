@@ -315,7 +315,7 @@ function Fordelingskort ({ fordeling, anvend }) {
         <div className="besked advarsel">
           <strong>{konflikter.length} tal er læst forskelligt i to regnskaber.</strong> Det sker,
           når en post er tilpasset i sammenligningstallene — eller når en PDF er læst forkert.
-          Tallet fra det regnskab, hvor året er hovedår, er valgt.
+          Tallet fra den nyeste årsrapport er valgt.
           <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
             {konflikter.slice(0, 6).map((k, i) => (
               <li key={i} style={{ fontSize: 12 }}>
