@@ -70,8 +70,28 @@ function localName (el) {
   return (el.localName || el.nodeName.split(':').pop() || '').toLowerCase()
 }
 
-function taelTeksten (raw) {
-  const n = parseFloat(String(raw).replace(/[.\s\u00a0]/g, '').replace(',', '.'))
+/**
+ * Laeser et talformateret tekstindhold. iXBRL-elementer angiver selv,
+ * hvilket talformat de bruger, via format-attributten (fra XBRL's
+ * Transformation Registry), fx "ixt:numdotdecimal" for engelsk/amerikansk
+ * format (punktum som decimaltegn, komma som tusindtalsseparator), som
+ * bl.a. bruges i engelsksprogede IFRS-aarsrapporter. Uden angivet format,
+ * eller ved dansk format ("ixt:numcommadecimal" m.fl.), antages dansk
+ * notation: komma som decimaltegn, punktum som tusindtalsseparator. En ren
+ * (ikke-inline) XBRL-instans bruger derimod altid kanonisk XML-decimalform:
+ * punktum som decimaltegn og aldrig tusindtalsseparatorer.
+ */
+function taelTeksten (raw, { erInline = true, format = null } = {}) {
+  const s = String(raw).trim()
+  if (!erInline) {
+    const n = parseFloat(s)
+    return Number.isFinite(n) ? n : null
+  }
+  if (format && /dot[-_]?decimal/i.test(format)) {
+    const n = parseFloat(s.replace(/,/g, ''))
+    return Number.isFinite(n) ? n : null
+  }
+  const n = parseFloat(s.replace(/[.\s\u00a0]/g, '').replace(',', '.'))
   return Number.isFinite(n) ? n : null
 }
 
@@ -144,7 +164,7 @@ export function parseXbrlDokument (tekst, kilde = '') {
     const ctx = kontekster[ctxId]
     if (!ctx || ctx.harDimension) return
 
-    let raa = taelTeksten(el.textContent)
+    let raa = taelTeksten(el.textContent, { erInline, format: el.getAttribute('format') })
     if (raa == null) return
     const scale = parseInt(el.getAttribute('scale') || '0', 10)
     if (Number.isFinite(scale) && scale) raa *= Math.pow(10, scale)
