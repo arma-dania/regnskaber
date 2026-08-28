@@ -151,6 +151,7 @@ export function parseXbrlDokument (tekst, kilde = '') {
   // "XBRL fundet, men ingen kendte navne" (fx anden taksonomi) fra "kendte
   // navne fundet, men kun med dimensioner" (fx opdelt på segment/selskab).
   const diagnostik = { antalElementer: 0, antalMatchede: 0, antalUdelukketPgaDimension: 0 }
+  const ikkeGenkendteNavne = new Map()
 
   const alle = [...doc.getElementsByTagName('*')]
   alle.forEach(el => {
@@ -165,7 +166,10 @@ export function parseXbrlDokument (tekst, kilde = '') {
 
     const traef = NAVN_TIL_KEY.get(konceptNavn.toLowerCase())
     const komponentTraef = traef ? null : NAVN_TIL_KOMPONENT.get(konceptNavn.toLowerCase())
-    if (!traef && !komponentTraef) return
+    if (!traef && !komponentTraef) {
+      ikkeGenkendteNavne.set(konceptNavn, (ikkeGenkendteNavne.get(konceptNavn) || 0) + 1)
+      return
+    }
     diagnostik.antalMatchede++
 
     const ctxId = el.getAttribute('contextRef')
@@ -204,6 +208,14 @@ export function parseXbrlDokument (tekst, kilde = '') {
   const sorteret = [...kolonner.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
   const virksomhed = (doc.querySelector('title')?.textContent || '').trim().slice(0, 80)
 
+  // De hyppigst forekommende ukendte navne er dem, der bedst forklarer,
+  // hvilken taksonomi eller opsætning dokumentet reelt bruger — fx til at
+  // udvide navnelisterne ovenfor med den rigtige betegnelse.
+  diagnostik.ikkeGenkendteNavne = [...ikkeGenkendteNavne.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([navn, antal]) => ({ navn, antal }))
+
   return {
     kilde,
     virksomhed,
@@ -227,7 +239,9 @@ export function diagnostikTekst (diagnostik) {
     return 'Dokumentet ser ikke ud til at indeholde XBRL-mærkede tal. Kontrollér, at adressen peger på selve regnskabsdokumentet og ikke en visningsside.'
   }
   if (!diagnostik.antalMatchede) {
-    return 'Dokumentet indeholder XBRL-mærkede tal, men ingen af de kendte begreber fra fsa- eller ifrs-full-taksonomien blev genkendt. Regnskabet bruger muligvis en anden taksonomi eller opsætning.'
+    const eksempler = (diagnostik.ikkeGenkendteNavne || []).slice(0, 8).map(n => n.navn).join(', ')
+    return 'Dokumentet indeholder XBRL-mærkede tal, men ingen af de kendte begreber fra fsa- eller ifrs-full-taksonomien blev genkendt. Regnskabet bruger muligvis en anden taksonomi eller opsætning.' +
+      (eksempler ? ` Navne fundet i dokumentet: ${eksempler}.` : '')
   }
   if (diagnostik.antalUdelukketPgaDimension >= diagnostik.antalMatchede) {
     return 'Dokumentet indeholder genkendte tal, men de er alle opdelt på en dimension (fx segment eller selskab i en koncern) uden en samlet sum uden dimension. Prøv evt. et andet dokument fra samme regnskab (fx moderselskabstal i stedet for koncerntal).'
