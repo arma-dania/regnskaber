@@ -146,6 +146,12 @@ export function parseXbrlDokument (tekst, kilde = '') {
     grupperPrioriteter[gruppe] = prioritet
   }
 
+  // Diagnostik til fejlmeldinger, når der ikke findes nogen genkendte tal:
+  // adskiller "intet XBRL-indhold i dokumentet" (fx forkert filtype) fra
+  // "XBRL fundet, men ingen kendte navne" (fx anden taksonomi) fra "kendte
+  // navne fundet, men kun med dimensioner" (fx opdelt på segment/selskab).
+  const diagnostik = { antalElementer: 0, antalMatchede: 0, antalUdelukketPgaDimension: 0 }
+
   const alle = [...doc.getElementsByTagName('*')]
   alle.forEach(el => {
     const ln = localName(el)
@@ -155,14 +161,19 @@ export function parseXbrlDokument (tekst, kilde = '') {
     if (erInline && navnAttr) konceptNavn = navnAttr.split(':').pop()
     else if (!erInline && el.getAttribute('contextRef')) konceptNavn = el.nodeName.split(':').pop()
     if (!konceptNavn) return
+    diagnostik.antalElementer++
 
     const traef = NAVN_TIL_KEY.get(konceptNavn.toLowerCase())
     const komponentTraef = traef ? null : NAVN_TIL_KOMPONENT.get(konceptNavn.toLowerCase())
     if (!traef && !komponentTraef) return
+    diagnostik.antalMatchede++
 
     const ctxId = el.getAttribute('contextRef')
     const ctx = kontekster[ctxId]
-    if (!ctx || ctx.harDimension) return
+    if (!ctx || ctx.harDimension) {
+      if (ctx?.harDimension) diagnostik.antalUdelukketPgaDimension++
+      return
+    }
 
     let raa = taelTeksten(el.textContent, { erInline, format: el.getAttribute('format') })
     if (raa == null) return
@@ -197,11 +208,31 @@ export function parseXbrlDokument (tekst, kilde = '') {
     kilde,
     virksomhed,
     enhed: 'kr.',
+    diagnostik,
     kolonner: sorteret
       .filter(([, k]) => Object.keys(k.values).length > 0)
       .slice(0, 4)
       .map(([dato, k]) => ({ navn: dato.slice(0, 4), values: k.values, sammensat: k.sammensat || {} }))
   }
+}
+
+/**
+ * Forklarer på dansk, hvorfor et dokument ikke gav nogen talkolonner, ud fra
+ * diagnostikken fra parseXbrlDokument — så brugeren ved, om dokumentet slet
+ * ikke var XBRL, brugte en ukendt taksonomi, eller kun havde tallene opdelt
+ * på en dimension (fx segment eller selskab i en koncern).
+ */
+export function diagnostikTekst (diagnostik) {
+  if (!diagnostik || !diagnostik.antalElementer) {
+    return 'Dokumentet ser ikke ud til at indeholde XBRL-mærkede tal. Kontrollér, at adressen peger på selve regnskabsdokumentet og ikke en visningsside.'
+  }
+  if (!diagnostik.antalMatchede) {
+    return 'Dokumentet indeholder XBRL-mærkede tal, men ingen af de kendte begreber fra fsa- eller ifrs-full-taksonomien blev genkendt. Regnskabet bruger muligvis en anden taksonomi eller opsætning.'
+  }
+  if (diagnostik.antalUdelukketPgaDimension >= diagnostik.antalMatchede) {
+    return 'Dokumentet indeholder genkendte tal, men de er alle opdelt på en dimension (fx segment eller selskab i en koncern) uden en samlet sum uden dimension. Prøv evt. et andet dokument fra samme regnskab (fx moderselskabstal i stedet for koncerntal).'
+  }
+  return 'Der blev fundet genkendte tal, men ingen af dem kunne knyttes til en balancedato.'
 }
 
 /**
