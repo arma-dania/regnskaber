@@ -214,3 +214,11 @@ table.data input.manuel { color: var(--okker); font-style: normal; }
 .tidslinje-punkt .rolle { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
 .tidslinje-punkt.primo .rolle { color: var(--okker); }
 .tidslinje-punkt .detalje { font-size: 11px; color: var(--daempet); }
+
+/* --- AI-dialog om omformningen --- */
+.ai-dialog { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; margin-top: 4px; }
+.ai-besked { display: flex; gap: 8px; padding: 8px 10px; border-radius: var(--radius); font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; }
+.ai-besked.bruger { background: var(--petrol-lys); }
+.ai-besked.ai { background: #fbfcfa; border: 1px solid var(--linje-svag); }
+.ai-afsender { flex: none; width: 24px; font-size: 11px; font-weight: 600; color: var(--daempet); text-transform: uppercase; }
+.ai-tekst { flex: 1; min-width: 0; }

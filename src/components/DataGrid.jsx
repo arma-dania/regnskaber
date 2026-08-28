@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FIELDS, SECTIONS, PRIMO_FIELDS, KOMPONENT_LABELS, withDerived, validate } from '../lib/model.js'
 import { parseDanskTal } from '../lib/pdfImport.js'
+import OmformningChat from './OmformningChat.jsx'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
 
@@ -166,6 +167,8 @@ export default function DataGrid ({ dataset, setDataset }) {
           </table>
         </div>
       </div>
+
+      <OmformningChat dataset={dataset} />
     </>
   )
 }
