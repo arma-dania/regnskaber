@@ -5,11 +5,14 @@ const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
  * analyseår; det ældste sammenligningsår bliver primobalance, så gennemsnitstal
  * kan beregnes korrekt allerede i det første analyseår.
  *
- * Hvor to regnskaber dækker samme år, vinder tallet fra den nyeste årsrapport
- * — en 2025-rapports sammenligningstal for 2024 går forud for 2024-rapportens
- * egne tal, fordi en senere rapport kan indeholde rettede eller omgjorte tal.
- * "Nyest" afgøres af regnskabets eget hovedår (den første kolonne i det
- * enkelte dokument), ikke af den rækkefølge, regnskaberne blev indlæst i.
+ * Hvert regnskab bidrager kun med sit eget hovedår (den første kolonne i
+ * dokumentet) — bortset fra det ældste regnskab, som også bidrager med sit
+ * sammenligningsår, der bruges til primobalancen. Det undgår at et regnskabs
+ * ofte forkortede sammenligningstal for et år fortrænger et andet regnskabs
+ * egne, fyldige tal for samme år: en 2025-rapport bidrager kun med 2025, en
+ * 2024-rapport kun med 2024, mens en 2023-rapport bidrager med både 2023 og
+ * 2022. "Ældst" afgøres af regnskabets eget hovedår, ikke af den rækkefølge,
+ * regnskaberne blev indlæst i.
  */
 export function fordelKolonner (kilder) {
   const poster = []
@@ -22,6 +25,7 @@ export function fordelKolonner (kilder) {
         sammensat: kol.sammensat || {},
         kilde: kilde.kilde,
         kildeHovedaar,
+        kolIndex,
         raekkefoelge: kildeIndex * 10 + kolIndex
       })
     })
@@ -29,8 +33,13 @@ export function fordelKolonner (kilder) {
 
   if (!poster.length) return null
 
-  const navngivne = poster.filter(p => erAarstal(p.aar))
+  const navngivneAlle = poster.filter(p => erAarstal(p.aar))
   const ukendte = poster.filter(p => !erAarstal(p.aar))
+
+  // Kun det ældste regnskab (laveste hovedår) bidrager med sit sammenligningsår.
+  const hovedaarSet = [...new Set(navngivneAlle.filter(p => p.kolIndex === 0 && p.kildeHovedaar).map(p => p.kildeHovedaar))]
+  const aeldsteHovedaar = hovedaarSet.length ? Math.min(...hovedaarSet) : null
+  const navngivne = navngivneAlle.filter(p => p.kolIndex === 0 || p.kildeHovedaar === aeldsteHovedaar)
 
   // Uden årstal i PDF'en kan kolonnerne kun stilles op i den rækkefølge, de blev læst.
   if (!navngivne.length) {
