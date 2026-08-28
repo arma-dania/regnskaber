@@ -3,7 +3,7 @@ import ImportPanel from './components/ImportPanel.jsx'
 import DataGrid from './components/DataGrid.jsx'
 import NogletalKort from './components/NogletalKort.jsx'
 import { emptyDataset, FIELDS } from './lib/model.js'
-import { NOGLETAL, OMRAADER, beregnAlle } from './lib/nogletal.js'
+import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal } from './lib/nogletal.js'
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
 import { EKSEMPEL } from './lib/eksempel.js'
@@ -27,12 +27,16 @@ export default function App () {
   const [trin, setTrin] = useState(0)
   const [travl, setTravl] = useState(null)
   const [kvittering, setKvittering] = useState(null)
+  // Ligger her (og ikke i ImportPanel) så de indlæste regnskaber ikke forsvinder,
+  // hvis man går videre til et andet trin og siden vender tilbage for at rette i dem.
+  const [fund, setFund] = useState([])
 
   useEffect(() => {
     try { localStorage.setItem(NOEGLE, JSON.stringify(dataset)) } catch { /* fx privat browsing */ }
   }, [dataset])
 
-  const resultater = useMemo(() => beregnAlle(dataset), [dataset])
+  const ekstraNogletal = useMemo(() => byggIndeksNogletal(dataset), [dataset.indeksFelter, dataset.indeksFelt])
+  const resultater = useMemo(() => beregnAlle(dataset, ekstraNogletal), [dataset, ekstraNogletal])
   const aarNavne = dataset.aar.map((y, i) => y.label || `År ${i + 1}`)
   const harData = dataset.aar.some(y => FIELDS.some(f => y.values[f.key] != null))
 
@@ -66,6 +70,7 @@ export default function App () {
   function nulstil () {
     if (!confirm('Alle indtastede tal slettes. Fortsæt?')) return
     setDataset(emptyDataset())
+    setFund([])
     setTrin(0)
     setKvittering('Skemaet er tømt.')
   }
@@ -102,7 +107,7 @@ export default function App () {
       <main>
         {kvittering && <div className="besked">{kvittering}</div>}
 
-        {trin === 0 && <ImportPanel dataset={dataset} setDataset={setDataset} gaaTilTrin={setTrin} />}
+        {trin === 0 && <ImportPanel dataset={dataset} setDataset={setDataset} gaaTilTrin={setTrin} fund={fund} setFund={setFund} />}
         {trin === 1 && (
           <>
             <DataGrid dataset={dataset} setDataset={setDataset} />
@@ -119,7 +124,7 @@ export default function App () {
 
             <div className="kort udskriv-skjul">
               <label className="felt">Indekstal (nøgletal 8) beregnes på</label>
-              <p className="hjaelp" style={{ marginTop: -6 }}>Vælg én eller flere poster. Vælges flere, lægges de sammen før indekstallet beregnes.</p>
+              <p className="hjaelp" style={{ marginTop: -6 }}>Vælg én eller flere poster. Der beregnes et eget indekstal for hver post — de vises nederst, efter de børsrelaterede nøgletal.</p>
               <div className="indeks-poster">
                 {FIELDS.filter(f => f.section !== 'ovrigt').map(f => {
                   const valgte = dataset.indeksFelter?.length ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
@@ -165,6 +170,23 @@ export default function App () {
                 </div>
               </section>
             ))}
+
+            {ekstraNogletal.length > 0 && (
+              <section>
+                <div className="omraade-overskrift">
+                  <h2>Indekstal</h2>
+                  <span className="antal">nøgletal 8</span>
+                </div>
+                <div className="nogletal-gitter">
+                  {ekstraNogletal.map(n => (
+                    <NogletalKort
+                      key={n.nr} nogletal={n} resultater={resultater}
+                      aarNavne={aarNavne} enhed={dataset.enhed}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
             <p className="fodnote" style={{ marginTop: 30 }}>
               Nøgletal markeret som skøn er beregnet på ultimotal, fordi primobalancen mangler.

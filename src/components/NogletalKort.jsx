@@ -33,7 +33,7 @@ export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed
   return (
     <article className="nt-kort">
       <div className="nt-hoved">
-        <span className="nt-nr">{n.nr}</span>
+        <span className="nt-nr">{n.visNr ?? n.nr}</span>
         <div style={{ minWidth: 0 }}>
           <div className="nt-navn">{n.navn}</div>
         </div>
