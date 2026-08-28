@@ -1,5 +1,3 @@
-import { FIELD_MAP } from './model.js'
-
 const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
 
 /**
@@ -12,8 +10,6 @@ const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
  * egne tal, fordi en senere rapport kan indeholde rettede eller omgjorte tal.
  * "Nyest" afgøres af regnskabets eget hovedår (den første kolonne i det
  * enkelte dokument), ikke af den rækkefølge, regnskaberne blev indlæst i.
- * Afviger to kilder fra hinanden, meldes det som en konflikt i stedet for at
- * blive tiet ihjel.
  */
 export function fordelKolonner (kilder) {
   const poster = []
@@ -43,7 +39,6 @@ export function fordelKolonner (kilder) {
       aar: sorteret.slice(0, 3).reverse().map((p, i) => ({ label: `År ${i + 1}`, values: p.values, kilder: [p.kilde], sammensat: p.sammensat })),
       primo: sorteret[3]?.values || {},
       primoKilde: sorteret[3]?.kilde || null,
-      konflikter: [],
       advarsler: ['Der blev ikke fundet årstal i dokumenterne. Kolonnerne er stillet op i den rækkefølge, de blev læst — kontrollér årstallene på trin 2.']
     }
   }
@@ -54,7 +49,6 @@ export function fordelKolonner (kilder) {
     perAar.get(p.aar).push(p)
   })
 
-  const konflikter = []
   const flettet = [...perAar.entries()].map(([aar, liste]) => {
     const rangeret = [...liste].sort((a, b) => (b.kildeHovedaar - a.kildeHovedaar) || (a.raekkefoelge - b.raekkefoelge))
     const values = {}
@@ -63,10 +57,7 @@ export function fordelKolonner (kilder) {
     rangeret.forEach(p => {
       if (!kilder.includes(p.kilde)) kilder.push(p.kilde)
       Object.entries(p.values).forEach(([key, v]) => {
-        if (values[key] == null) { values[key] = v; return }
-        if (afviger(values[key], v)) {
-          konflikter.push({ aar, felt: key, label: FIELD_MAP[key]?.label || key, valgt: values[key], anden: v, kilde: p.kilde })
-        }
+        if (values[key] == null) values[key] = v
       })
       Object.entries(p.sammensat || {}).forEach(([key, grupper]) => {
         if (sammensat[key] == null) sammensat[key] = grupper
@@ -94,15 +85,8 @@ export function fordelKolonner (kilder) {
     primo: primoPost?.values || {},
     primoAar: primoPost?.aar || null,
     primoKilde: primoPost?.kilder?.[0] || null,
-    konflikter,
     advarsler
   }
-}
-
-function afviger (a, b) {
-  if (a == null || b == null) return false
-  const graense = Math.max(1, Math.abs(a) * 0.005)
-  return Math.abs(a - b) > graense
 }
 
 /** Lægger fordelingen ind i datasættet uden at røre virksomhedsnavn og enhed. */

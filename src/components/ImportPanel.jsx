@@ -6,8 +6,7 @@ import { FIELD_MAP } from '../lib/model.js'
 
 const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
 
-export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
-  const [fund, setFund] = useState([])
+export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, setFund }) {
   const [status, setStatus] = useState(null)
   const [arbejder, setArbejder] = useState(false)
   const [link, setLink] = useState('')
@@ -223,9 +222,17 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
 
       {fund.map((f, i) => (
         <details className="kort" key={i}>
-          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
-            {f.kilde} — {f.kolonner.length} talkolonne{f.kolonner.length === 1 ? '' : 'r'}
-            {f.antalFundne != null && `, ${f.antalFundne} poster genkendt`}
+          <summary style={{ cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <span>
+              {f.kilde} — {f.kolonner.length} talkolonne{f.kolonner.length === 1 ? '' : 'r'}
+              {f.antalFundne != null && `, ${f.antalFundne} poster genkendt`}
+            </span>
+            <button
+              type="button" className="knap lys" style={{ padding: '2px 10px', fontSize: 12 }}
+              onClick={e => { e.preventDefault(); e.stopPropagation(); setFund(nu => nu.filter((_, idx) => idx !== i)) }}
+            >
+              Fjern
+            </button>
           </summary>
           <p className="hjaelp" style={{ marginTop: 12 }}>Her kan en enkelt kolonne placeres manuelt, hvis den automatiske fordeling ikke rammer.</p>
           <div className="tabel-omslag">
@@ -276,7 +283,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
 }
 
 function Fordelingskort ({ fordeling, anvend }) {
-  const { aar, primoAar, primo, konflikter, advarsler } = fordeling
+  const { aar, primoAar, primo, advarsler } = fordeling
   const antalPrimo = Object.keys(primo || {}).length
 
   return (
@@ -310,22 +317,6 @@ function Fordelingskort ({ fordeling, anvend }) {
       </div>
 
       {advarsler.map((a, i) => <div className="besked advarsel" key={i}>{a}</div>)}
-
-      {konflikter.length > 0 && (
-        <div className="besked advarsel">
-          <strong>{konflikter.length} tal er læst forskelligt i to regnskaber.</strong> Det sker,
-          når en post er tilpasset i sammenligningstallene — eller når en PDF er læst forkert.
-          Tallet fra den nyeste årsrapport er valgt.
-          <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-            {konflikter.slice(0, 6).map((k, i) => (
-              <li key={i} style={{ fontSize: 12 }}>
-                {k.aar}, {k.label}: <span className="tal">{fmt(k.valgt)}</span> mod <span className="tal">{fmt(k.anden)}</span>
-              </li>
-            ))}
-            {konflikter.length > 6 && <li style={{ fontSize: 12 }}>… og {konflikter.length - 6} mere</li>}
-          </ul>
-        </div>
-      )}
 
       <button className="knap primaer" onClick={anvend} style={{ marginTop: 6 }}>
         Læg tallene i skemaet

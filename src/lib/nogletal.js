@@ -1,8 +1,8 @@
-import { withDerived, PRIMO_FIELDS } from './model.js'
+import { withDerived, PRIMO_FIELDS, FIELD_MAP } from './model.js'
 
 export const OMRAADER = [
   { id: 'rentabilitet', title: 'Rentabilitetsanalyse', nrs: [1, 2, 3, 4, 5, 6] },
-  { id: 'indtjening', title: 'Indtjeningsevne', nrs: [7, 8, 9, 10, 11, 12] },
+  { id: 'indtjening', title: 'Indtjeningsevne', nrs: [7, 9, 10, 11, 12] },
   { id: 'kapital', title: 'Kapitaltilpasning og pengestrømme', nrs: [13, 14, 15, 16, 17, 18, 19] },
   { id: 'soliditet', title: 'Soliditet og likviditet', nrs: [20, 21, 22, 23, 24] },
   { id: 'boers', title: 'Børsrelaterede nøgletal', nrs: [25, 26, 27, 28] }
@@ -64,17 +64,32 @@ export function buildContext (dataset, index) {
     basis: (() => {
       const b = dataset.aar[dataset.indeksBasisaar ?? 0]
       return withDerived(b.values, b.manual)
-    })(),
-    indeksFelter: (dataset.indeksFelter && dataset.indeksFelter.length) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
+    })()
   }
 }
 
-// Summerer de valgte poster for ét års beregningsgrundlag. Ingen af posterne
-// udfyldt giver null, så nøgletallet vises som "kan ikke beregnes".
-function summerIndeksPoster (grundlag, felter) {
-  const fundne = felter.filter(k => grundlag[k] != null)
-  if (!fundne.length) return null
-  return fundne.reduce((sum, k) => sum + grundlag[k], 0)
+/**
+ * Bygger ét indekstal pr. afkrydset post (ikke summeret sammen) til visning
+ * nederst på siden, efter de 28 faste nøgletal. Genbruger samme opbygning
+ * som resten af NOGLETAL, så NogletalKort og beregningen kan bruges uændret.
+ */
+export function byggIndeksNogletal (dataset) {
+  const felter = (dataset.indeksFelter && dataset.indeksFelter.length) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
+  return felter.map(key => {
+    const label = FIELD_MAP[key]?.label || key
+    return {
+      nr: `indeks:${key}`,
+      visNr: 8,
+      omraade: 'indeks',
+      navn: `Indekstal – ${label}`,
+      enhed: 'indeks',
+      taeller: `${label} · 100`,
+      naevner: 'Basisårets tal',
+      bedre: 'op',
+      forklaring: `Indeksberegning for ${label}. Indeks 100 i basisåret; tallet viser udviklingen i procent af basisåret.`,
+      calc: c => ({ num: c.v[key], den: c.basis[key], pct: true })
+    }
+  })
 }
 
 /**
@@ -109,10 +124,6 @@ export const NOGLETAL = [
   { nr: 7, omraade: 'indtjening', navn: 'Bruttomargin (bruttoavanceprocent)', enhed: '%', taeller: 'Bruttoresultat · 100', naevner: 'Omsætning', bedre: 'op',
     forklaring: 'Viser hvor mange procent af omsætningen, der er tilbage til dækning af kapacitetsomkostninger, renter, skat og overskud. Bruttomargin og bruttoavanceprocent bruges synonymt.',
     calc: c => ({ num: c.v.bruttoresultat, den: c.v.omsaetning, pct: true }) },
-
-  { nr: 8, omraade: 'indtjening', navn: 'Indekstal', enhed: 'indeks', taeller: 'Årets tal · 100', naevner: 'Basisårets tal', bedre: 'op',
-    forklaring: 'Indeksberegninger supplerer tallenes udviklingsretning og -hastighed. Vælg selv hvilke poster der indekseres — vælges flere, lægges de sammen.',
-    calc: c => ({ num: summerIndeksPoster(c.v, c.indeksFelter), den: summerIndeksPoster(c.basis, c.indeksFelter), pct: true }) },
 
   { nr: 9, omraade: 'indtjening', navn: 'Driftsmæssig gearing', enhed: '%', taeller: 'Kapacitetsomkostninger · 100', naevner: 'Samlede driftsomkostninger', bedre: 'neutral',
     forklaring: 'Viser kapacitetsomkostningernes andel af de samlede driftsomkostninger.',
@@ -205,13 +216,13 @@ function enhedFaktor (enhed) {
   return 1
 }
 
-export function beregnAar (dataset, index) {
+export function beregnAar (dataset, index, ekstraNogletal = []) {
   const c = buildContext(dataset, index)
   const faktor = enhedFaktor(dataset.enhed || '')
   const ud = {}
 
   // 25 og 27 skal beregnes først, fordi 26 og 28 bygger på dem.
-  const rows = [...NOGLETAL].sort((a, b) => {
+  const rows = [...NOGLETAL, ...ekstraNogletal].sort((a, b) => {
     const order = n => ([26, 28].includes(n.nr) ? 1 : 0)
     return order(a) - order(b)
   })
@@ -236,8 +247,8 @@ export function beregnAar (dataset, index) {
   return ud
 }
 
-export function beregnAlle (dataset) {
-  return dataset.aar.map((_, i) => beregnAar(dataset, i))
+export function beregnAlle (dataset, ekstraNogletal = []) {
+  return dataset.aar.map((_, i) => beregnAar(dataset, i, ekstraNogletal))
 }
 
 function kortEnhed (e) {
