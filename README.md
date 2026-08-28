@@ -138,10 +138,12 @@ appen fordeler dem selv:
 Dermed kan nøgletal 1, 3, 4, 5 og 6 beregnes på rigtige gennemsnit af primo og ultimo
 i alle tre analyseår, og nøgletal 18 får det lager primo, varekøbet kræver.
 
-Hvor to regnskaber dækker samme år, bruges tallet fra det regnskab, hvor året er hovedår —
-sammenligningskolonnen er ofte forkortet. Afviger de to kilder mere end en halv procent
-fra hinanden, vises det som en konflikt, før tallene lægges i skemaet. Det fanger både
-tilpassede sammenligningstal og fejllæste PDF-linjer.
+Hvert regnskab bidrager kun med sit eget hovedår — bortset fra det ældste regnskab, som
+også bidrager med sit sammenligningsår til primobalancen. En 2025-rapport bidrager altså
+kun med 2025, en 2024-rapport kun med 2024, mens en 2023-rapport bidrager med både 2023 og
+2022. Det undgår at et regnskabs ofte forkortede sammenligningstal for et år fortrænger et
+andet regnskabs egne, fyldige tal for samme år. "Ældst" afgøres af regnskabets eget
+hovedår, ikke af den rækkefølge, regnskaberne blev indlæst i.
 
 Mangler primobalancen — fx fordi der kun er indlæst ét regnskab — regnes der på ultimotal,
 og de berørte nøgletal markeres som skøn.
