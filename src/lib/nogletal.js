@@ -44,10 +44,6 @@ export function buildContext (dataset, index) {
   })()
   const gnsFremmedkapital = fkNu == null ? null : (fkFoer == null ? fkNu : (fkNu + fkFoer) / 2)
 
-  const renteNetto = (v.finansielleOmkostninger != null || v.finansielleIndtaegter != null)
-    ? (v.finansielleOmkostninger || 0) - (v.finansielleIndtaegter || 0)
-    : null
-
   const samledeDriftsomk = (v.vareforbrug != null || v.kapacitetsomkostninger != null)
     ? (v.vareforbrug || 0) + (v.kapacitetsomkostninger || 0)
     : null
@@ -64,7 +60,7 @@ export function buildContext (dataset, index) {
 
   return {
     v, prev, index, gns, gnsErSkoen, ultimoFoer,
-    gnsFremmedkapital, renteNetto, samledeDriftsomk, varekoeb, nulpunkt,
+    gnsFremmedkapital, samledeDriftsomk, varekoeb, nulpunkt,
     basis: (() => {
       const b = dataset.aar[dataset.indeksBasisaar ?? 0]
       return withDerived(b.values, b.manual)
@@ -102,9 +98,9 @@ export const NOGLETAL = [
     forklaring: 'Viser evnen til at forrente den af ejerne indskudte kapital. Kan også beregnes før skat ved at indsætte resultat før skat i tælleren.',
     calc: c => ({ num: c.v.aaretsResultat, den: c.gns('egenkapital'), pct: true, skoen: c.gnsErSkoen('egenkapital') }) },
 
-  { nr: 5, omraade: 'rentabilitet', navn: 'Fremmedkapitalens forrentning', enhed: '%', taeller: 'Renteomkostninger netto · 100', naevner: 'Gennemsnitlig fremmedkapital', bedre: 'ned',
+  { nr: 5, omraade: 'rentabilitet', navn: 'Fremmedkapitalens forrentning', enhed: '%', taeller: 'Renteomkostninger · 100', naevner: 'Gennemsnitlig fremmedkapital', bedre: 'ned',
     forklaring: 'Viser virksomhedens gennemsnitlige lånerente af fremmedkapital (gæld).',
-    calc: c => ({ num: c.renteNetto, den: c.gnsFremmedkapital, pct: true }) },
+    calc: c => ({ num: c.v.finansielleOmkostninger, den: c.gnsFremmedkapital, pct: true }) },
 
   { nr: 6, omraade: 'rentabilitet', navn: 'Finansiel gearing', enhed: 'gange', taeller: 'Gennemsnitlig fremmedkapital', naevner: 'Gennemsnitlig egenkapital', bedre: 'neutral',
     forklaring: 'Viser hvor mange kroner fremmedkapital (gældsforpligtelser), der er pr. krone egenkapital.',
