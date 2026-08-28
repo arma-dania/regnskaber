@@ -160,7 +160,10 @@ export function parseXbrlDokument (tekst, kilde = '') {
     const navnAttr = el.getAttribute('name')
     let konceptNavn = null
     if (erInline && navnAttr) konceptNavn = navnAttr.split(':').pop()
-    else if (!erInline && el.getAttribute('contextRef')) konceptNavn = el.nodeName.split(':').pop()
+    // unitRef adskiller talposter fra tekstposter (fx bestyrelsesmedlemmers navne
+    // og revisoroplysninger), som en ren XBRL-instans også tagger med contextRef,
+    // men aldrig med en enhed — de skal ikke drukne diagnostikkens navneliste.
+    else if (!erInline && el.getAttribute('contextRef') && el.getAttribute('unitRef')) konceptNavn = el.nodeName.split(':').pop()
     if (!konceptNavn) return
     diagnostik.antalElementer++
 
