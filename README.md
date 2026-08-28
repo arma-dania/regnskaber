@@ -97,6 +97,12 @@ kontekster uden dimensioner bruges, så segmentoplysninger ikke forstyrrer hoved
 er en post kun tagget som en dimensioneret opdeling (fx en note udelukkende opdelt på en
 akse uden en samlet sum uden dimension), kommer den ikke med.
 
+Talformatet læses ud fra iXBRL'ens egen format-attribut, ikke gættet ud fra sproget:
+engelsksprogede IFRS-årsrapporter bruger typisk punktum som decimaltegn og komma som
+tusindtalsseparator ("4,000,000.00"), mens danske fsa-regnskaber bruger det omvendte
+("4.000.000,00"). Læses det forkerte format, bliver tallet forkert med en faktor på op til
+en million — kontrollér derfor altid balancen og et par nøgletal efter en import.
+
 Nogle regnskaber tagger aldrig en samlet personaleomkostning – kun de enkeltposter,
 årsregnskabsloven kræver specifikation af (§98a): løn, pension og andre omkostninger til
 social sikring, plus evt. andre personaleomkostninger. Findes totalen ikke, lægger appen
