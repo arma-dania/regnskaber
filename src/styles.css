@@ -149,16 +149,16 @@ table.data input.manuel { color: var(--okker); font-style: normal; }
 .omraade-overskrift h2 { font-size: 19px; }
 .omraade-overskrift .antal { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--daempet); }
 
-.nogletal-gitter { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-@media (max-width: 900px) { .nogletal-gitter { grid-template-columns: 1fr; } }
+.nogletal-gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .nogletal-gitter { grid-template-columns: 1fr; } }
 
-.nt-kort { background: var(--kort); border: 1px solid var(--linje); border-radius: var(--radius); padding: 16px 18px 10px; display: flex; flex-direction: column; }
-.nt-hoved { display: flex; gap: 10px; align-items: flex-start; }
-.nt-nr { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #fff; background: var(--blaek); width: 24px; height: 24px; display: grid; place-items: center; border-radius: 2px; flex: none; }
-.nt-navn { font-family: 'IBM Plex Serif', serif; font-size: 15px; font-weight: 600; line-height: 1.3; }
+.nt-kort { background: var(--kort); border: 1px solid var(--linje); border-radius: var(--radius); padding: 12px 14px 8px; display: flex; flex-direction: column; }
+.nt-hoved { display: flex; gap: 8px; align-items: flex-start; }
+.nt-nr { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #fff; background: var(--blaek); width: 20px; height: 20px; display: grid; place-items: center; border-radius: 2px; flex: none; }
+.nt-navn { font-family: 'IBM Plex Serif', serif; font-size: 13px; font-weight: 600; line-height: 1.25; }
 .nt-vaerdi { margin-left: auto; text-align: right; }
-.nt-vaerdi .stor { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 500; }
-.nt-vaerdi .aendring { font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+.nt-vaerdi .stor { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500; }
+.nt-vaerdi .aendring { font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
 .aendring.op { color: var(--op); }
 .aendring.ned { color: var(--ned); }
 .aendring.neutral { color: var(--daempet); }
@@ -214,3 +214,11 @@ table.data input.manuel { color: var(--okker); font-style: normal; }
 .tidslinje-punkt .rolle { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
 .tidslinje-punkt.primo .rolle { color: var(--okker); }
 .tidslinje-punkt .detalje { font-size: 11px; color: var(--daempet); }
+
+/* --- AI-dialog om omformningen --- */
+.ai-dialog { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; margin-top: 4px; }
+.ai-besked { display: flex; gap: 8px; padding: 8px 10px; border-radius: var(--radius); font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; }
+.ai-besked.bruger { background: var(--petrol-lys); }
+.ai-besked.ai { background: #fbfcfa; border: 1px solid var(--linje-svag); }
+.ai-afsender { flex: none; width: 24px; font-size: 11px; font-weight: 600; color: var(--daempet); text-transform: uppercase; }
+.ai-tekst { flex: 1; min-width: 0; }

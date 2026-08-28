@@ -221,7 +221,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
       {fordeling && <Fordelingskort fordeling={fordeling} anvend={anvend} />}
 
       {fund.map((f, i) => (
-        <details className="kort" key={i}>
+        <details className="kort" key={i} open>
           <summary style={{ cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <span>
               {f.kilde} — {f.kolonner.length} talkolonne{f.kolonner.length === 1 ? '' : 'r'}
@@ -234,7 +234,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
               Fjern
             </button>
           </summary>
-          <p className="hjaelp" style={{ marginTop: 12 }}>Her kan en enkelt kolonne placeres manuelt, hvis den automatiske fordeling ikke rammer.</p>
+          <p className="hjaelp" style={{ marginTop: 12 }}>Regnskabstallene, som blev genkendt. Her kan en enkelt kolonne også placeres manuelt, hvis den automatiske fordeling ikke rammer.</p>
           <div className="tabel-omslag">
             <table className="data">
               <thead>
@@ -244,7 +244,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
                 </tr>
               </thead>
               <tbody>
-                {nogleVigtige(f).map(key => (
+                {alleFundne(f).map(key => (
                   <tr key={key}>
                     <td>{FIELD_MAP[key]?.label || key}</td>
                     {f.kolonner.map((k, j) => <td key={j} className="num">{fmt(k.values[key])}</td>)}
@@ -327,11 +327,13 @@ function Fordelingskort ({ fordeling, anvend }) {
 
 const VIGTIGE = ['omsaetning', 'bruttoresultat', 'resultatPrimaerDrift', 'aaretsResultat', 'anlaegsaktiver', 'omsaetningsaktiver', 'aktiverIAlt', 'egenkapital', 'kortfristetGaeld']
 
-function nogleVigtige (f) {
+// Alle genkendte poster, med de vigtigste øverst. Ingen grænse — brugeren skal
+// se regnskabstallene, som de er læst, ikke kun et udvalg.
+function alleFundne (f) {
   const set = new Set()
   f.kolonner.forEach(k => Object.keys(k.values).forEach(key => set.add(key)))
   const fundne = [...set]
   const vigtige = VIGTIGE.filter(k => set.has(k))
   const resten = fundne.filter(k => !vigtige.includes(k))
-  return [...vigtige, ...resten].slice(0, 14)
+  return [...vigtige, ...resten]
 }

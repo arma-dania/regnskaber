@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine, CartesianGrid
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid
 } from 'recharts'
 import { formatVaerdi } from '../lib/nogletal.js'
 
@@ -63,23 +63,28 @@ export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed
       <div className="nt-graf" data-graf-nr={n.nr}>
         {harTal
           ? (
-            <ResponsiveContainer width="100%" height={158}>
-              <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={96}>
+              <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="#e8ebe7" vertical={false} />
-                <XAxis dataKey="aar" tick={{ fontSize: 11, fill: '#5f6b72' }} axisLine={{ stroke: '#d7ddd7' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#5f6b72' }} axisLine={false} tickLine={false} width={46} />
+                <XAxis dataKey="aar" tick={{ fontSize: 10, fill: '#5f6b72' }} axisLine={{ stroke: '#d7ddd7' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#5f6b72' }} axisLine={false} tickLine={false} width={38} />
                 <Tooltip
                   formatter={v => formatVaerdi(n, v, enhed)}
                   contentStyle={{ fontSize: 12, borderRadius: 3, border: '1px solid #d7ddd7' }}
                 />
                 <ReferenceLine y={0} stroke="#14202e" />
                 {n.enhed === '%' && n.nr === 23 && <ReferenceLine y={100} stroke={OKKER} strokeDasharray="4 3" />}
-                <Bar dataKey="vaerdi" radius={[2, 2, 0, 0]} maxBarSize={64} isAnimationActive={false}>
-                  {data.map((d, i) => (
-                    <Cell key={i} fill={d.vaerdi < 0 ? NED : (i === data.length - 1 ? PETROL : '#9db6bc')} />
-                  ))}
-                </Bar>
-              </BarChart>
+                <Line
+                  type="monotone" dataKey="vaerdi" stroke={PETROL} strokeWidth={2}
+                  isAnimationActive={false} connectNulls activeDot={{ r: 5 }}
+                  dot={({ cx, cy, index, payload }) => {
+                    if (payload.vaerdi == null) return null
+                    const sidste = index === data.length - 1
+                    const farve = payload.vaerdi < 0 ? NED : (sidste ? PETROL : '#9db6bc')
+                    return <circle key={index} cx={cx} cy={cy} r={sidste ? 4 : 3} fill={farve} stroke="#fff" strokeWidth={1} />
+                  }}
+                />
+              </LineChart>
             </ResponsiveContainer>
             )
           : (

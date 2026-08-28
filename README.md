@@ -60,6 +60,7 @@ og manuel indtastning kører helt i browseren.
 | --- | --- |
 | `TILLAD_ALLE_VAERTER` | Sæt til `true`, hvis proxyen skal kunne hente iXBRL fra andre værter end de danske regnskabsservere. Lad den være slået fra på en offentlig side. |
 | `VIRK_BRUGER`, `VIRK_KODE` | Kun nødvendige, hvis Erhvervsstyrelsens distributionsindeks kræver legitimation. Rekvireres hos Erhvervsstyrelsen på 35 29 10 00. |
+| `ANTHROPIC_API_KEY` | Kræves for AI-dialogen om omformningen på trin 2 (Analyseform). Nøglen oprettes på [console.anthropic.com](https://console.anthropic.com). Uden nøgle svarer dialogen med en forklarende fejl i stedet for at fejle uforståeligt. Kald til Anthropics API koster efter forbrug — se [priser](https://www.anthropic.com/pricing). |
 
 ### Fejlsøgning: 403 fra Virk
 
@@ -110,6 +111,15 @@ selv disse fire poster sammen. Det er et bedste bud på taksonomiens navne for
 enkeltposterne, så tjek tallet mod regnskabets note om personaleomkostninger, hvis det er
 muligt.
 
+## AI-dialog om omformningen
+
+På trin 2 (Analyseform) kan man spørge en AI om, hvordan regnskabet er lagt om til
+analyseform — fx om en post bør flyttes eller lægges sammen med en anden. AI'en kender
+regnskabets tal, som de aktuelt står i skemaet, men retter ikke selv i dem; forslag skal
+selv indtastes i skemaet. Kræver `ANTHROPIC_API_KEY` sat i Netlify (se Miljøvariabler
+ovenfor) — uden nøgle viser dialogen blot en forklarende fejl. Proxyen står i
+`netlify/functions/ai-omformning.js`.
+
 ## Fire balancedatoer, tre analyseår
 
 Et årsregnskab indeholder to år. Tre regnskaber giver derfor fire balancedatoer, og
@@ -146,8 +156,10 @@ src/lib/fordeling.js    Fordeling af fire balancedatoer på tre år plus primo
 src/lib/ixbrlImport.js  Mapping fra fsa- og ifrs-full-taksonomien til analyseformen
 src/lib/exportExcel.js  Fire ark: analyseform, nøgletal, beregningsgrundlag, definitioner
 src/lib/exportWord.js   Rapport med tabeller, grafer og kommentarfelter
-netlify/functions/ixbrl.js       Proxy, der henter iXBRL-dokumenter
-netlify/functions/regnskaber.js  Opslag af årsrapporter på CVR-nummer
+src/lib/aiOmformning.js Opsummerer regnskabet og kalder AI-dialogen om omformningen
+netlify/functions/ixbrl.js          Proxy, der henter iXBRL-dokumenter
+netlify/functions/regnskaber.js     Opslag af årsrapporter på CVR-nummer
+netlify/functions/ai-omformning.js  Proxy til Anthropics API for AI-dialogen
 ```
 
 ## Licens
