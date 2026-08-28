@@ -86,7 +86,9 @@ og balancen kontrolleres undervejs. Betragt PDF-indlæsningen som et udkast, ikk
 
 **CVR-opslag.** Skriv virksomhedens CVR-nummer, og appen slår de offentliggjorte årsrapporter
 op i Erhvervsstyrelsens distributionsindeks, viser dem med regnskabsperiode og henter de tre
-nyeste XBRL-dokumenter med ét klik. Det er den pålidelige vej ind.
+nyeste XBRL-dokumenter med ét klik. Det er den pålidelige vej ind. Kun regnskaber, der dækker
+(tæt på) et helt år, vises — kvartals- og halvårsregnskaber, som nogle selskaber også
+offentliggør, sorteres fra.
 
 **iXBRL.** Her er tallene mærket op med begreber fra taksonomien, så indlæsningen er
 pålidelig. Både den danske årsrapporttaksonomi (fsa) og den engelske IFRS-taksonomi

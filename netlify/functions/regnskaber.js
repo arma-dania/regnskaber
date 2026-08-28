@@ -38,24 +38,39 @@ export default async (request) => {
     const data = await r.json()
     const traef = (data?.hits?.hits || []).map(h => h._source).filter(Boolean)
 
-    const regnskaber = traef.map(s => {
-      const periode = s.regnskab?.regnskabsperiode || {}
-      const dok = (s.dokumenter || []).map(d => ({
-        url: d.dokumentUrl,
-        type: d.dokumentType,
-        mime: d.dokumentMimeType
-      }))
-      return {
-        offentliggjort: s.offentliggoerelsesTidspunkt,
-        start: periode.startDato,
-        slut: periode.slutDato,
-        aar: periode.slutDato ? String(periode.slutDato).slice(0, 4) : null,
-        type: s.offentliggoerelsestype,
-        xbrl: dok.find(d => /xml|xbrl/i.test(d.mime || '') || /\.xml$/i.test(d.url || ''))?.url || null,
-        pdf: dok.find(d => /pdf/i.test(d.mime || ''))?.url || null,
-        dokumenter: dok
-      }
-    })
+    const regnskaber = traef
+      // Kun regnskaber — distributionsindekset rummer også andre
+      // offentliggørelsestyper (fx vedtægtsændringer), som ikke har en
+      // regnskabsperiode og alligevel ville blive filtreret fra nedenfor,
+      // men det er billigt at være eksplicit.
+      .filter(s => s.offentliggoerelsestype === 'regnskab')
+      .map(s => {
+        const periode = s.regnskab?.regnskabsperiode || {}
+        const dok = (s.dokumenter || []).map(d => ({
+          url: d.dokumentUrl,
+          type: d.dokumentType,
+          mime: d.dokumentMimeType
+        }))
+        const varighedDage = periode.startDato && periode.slutDato
+          ? Math.round((new Date(periode.slutDato) - new Date(periode.startDato)) / 86400000)
+          : null
+        return {
+          offentliggjort: s.offentliggoerelsesTidspunkt,
+          start: periode.startDato,
+          slut: periode.slutDato,
+          aar: periode.slutDato ? String(periode.slutDato).slice(0, 4) : null,
+          type: s.offentliggoerelsestype,
+          varighedDage,
+          xbrl: dok.find(d => /xml|xbrl/i.test(d.mime || '') || /\.xml$/i.test(d.url || ''))?.url || null,
+          pdf: dok.find(d => /pdf/i.test(d.mime || ''))?.url || null,
+          dokumenter: dok
+        }
+      })
+      // Kvartals- og halvårsregnskaber (kort regnskabsperiode) udelukkes —
+      // kun regnskaber, der dækker (tæt på) et helt år, skal vises. Et
+      // forlænget første regnskabsår kan vare op til 18 måneder, så der
+      // filtreres kun på for kort periode, ikke for lang.
+      .filter(r2 => r2.varighedDage == null || r2.varighedDage >= 300)
 
     // Kun ét regnskab pr. regnskabsår — det senest offentliggjorte vinder,
     // så en omgørelse ikke ligger side om side med den oprindelige rapport.
