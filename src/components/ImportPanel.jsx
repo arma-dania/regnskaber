@@ -2,7 +2,7 @@ import { useState, useRef, useMemo } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
 import { importerIxbrlLink, importerXbrlFil, soegRegnskaber } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
-import { FIELD_MAP } from '../lib/model.js'
+import { FIELDS, FIELD_MAP, SECTIONS } from '../lib/model.js'
 
 const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
 
@@ -220,8 +220,16 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
 
       {fordeling && <Fordelingskort fordeling={fordeling} anvend={anvend} />}
 
+      {fund.length > 0 && (
+        <p className="hjaelp" style={{ marginTop: -6 }}>
+          Tabellen ovenfor viser de fordelte tal. Her nedenfor er hvert regnskabs egne,
+          rå kolonner — til at kontrollere kilden eller placere en enkelt kolonne manuelt,
+          hvis den automatiske fordeling ikke rammer.
+        </p>
+      )}
+
       {fund.map((f, i) => (
-        <details className="kort" key={i} open>
+        <details className="kort" key={i}>
           <summary style={{ cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <span>
               {f.kilde} — {f.kolonner.length} talkolonne{f.kolonner.length === 1 ? '' : 'r'}
@@ -234,7 +242,6 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
               Fjern
             </button>
           </summary>
-          <p className="hjaelp" style={{ marginTop: 12 }}>Regnskabstallene, som blev genkendt. Her kan en enkelt kolonne også placeres manuelt, hvis den automatiske fordeling ikke rammer.</p>
           <div className="tabel-omslag">
             <table className="data">
               <thead>
@@ -286,10 +293,15 @@ function Fordelingskort ({ fordeling, anvend }) {
   const { aar, primoAar, primo, advarsler } = fordeling
   const antalPrimo = Object.keys(primo || {}).length
 
+  const kolonner = [
+    { label: primoAar ? `Primo ${primoAar}` : 'Primo', values: primo || {} },
+    ...aar.map(a => ({ label: a.label, values: a.values }))
+  ]
+
   return (
     <div className="kort" style={{ borderColor: 'var(--petrol)' }}>
       <h3>Sådan fordeles årene</h3>
-      <p className="hjaelp">Tjek tidslinjen, før tallene lægges i skemaet.</p>
+      <p className="hjaelp">Tjek tidslinjen og tallene, før de lægges i skemaet.</p>
 
       <div className="tidslinje">
         {primoAar
@@ -316,14 +328,45 @@ function Fordelingskort ({ fordeling, anvend }) {
         ))}
       </div>
 
+      <div className="tabel-omslag" style={{ marginTop: 16 }}>
+        <table className="data">
+          <thead>
+            <tr>
+              <th>Post</th>
+              {kolonner.map((k, i) => <th key={i} className="num">{k.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {SECTIONS.map(sec => {
+              const felter = FIELDS.filter(f => f.section === sec.id && kolonner.some(k => k.values[f.key] != null))
+              if (!felter.length) return null
+              return (
+                <Fragmenter key={sec.id}>
+                  <tr className="gruppe"><td colSpan={1 + kolonner.length}>{sec.title}</td></tr>
+                  {felter.map(f => (
+                    <tr key={f.key}>
+                      <td>{f.label}</td>
+                      {kolonner.map((k, i) => <td key={i} className="num">{fmt(k.values[f.key])}</td>)}
+                    </tr>
+                  ))}
+                </Fragmenter>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
       {advarsler.map((a, i) => <div className="besked advarsel" key={i}>{a}</div>)}
 
-      <button className="knap primaer" onClick={anvend} style={{ marginTop: 6 }}>
+      <button className="knap primaer" onClick={anvend} style={{ marginTop: 16 }}>
         Læg tallene i skemaet
       </button>
     </div>
   )
 }
+
+// Lille hjælper, så tabelrækker kan grupperes uden ekstra DOM-element.
+function Fragmenter ({ children }) { return <>{children}</> }
 
 const VIGTIGE = ['omsaetning', 'bruttoresultat', 'resultatPrimaerDrift', 'aaretsResultat', 'anlaegsaktiver', 'omsaetningsaktiver', 'aktiverIAlt', 'egenkapital', 'kortfristetGaeld']
 
