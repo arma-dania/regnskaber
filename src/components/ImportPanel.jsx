@@ -1,18 +1,16 @@
 import { useState, useRef, useMemo } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
-import { importerIxbrlLink, importerXbrlFil, soegRegnskaber } from '../lib/ixbrlImport.js'
+import { importerIxbrlLink, importerXbrlFil, soegRegnskaber, diagnostikTekst } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
 import { FIELDS, FIELD_MAP, SECTIONS } from '../lib/model.js'
 
 const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
 
-export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, setFund }) {
+export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, setFund, cvr, setCvr, traf, setTraf }) {
   const [status, setStatus] = useState(null)
   const [arbejder, setArbejder] = useState(false)
   const [link, setLink] = useState('')
   const [over, setOver] = useState(false)
-  const [cvr, setCvr] = useState('')
-  const [traf, setTraf] = useState(null)
   const filInput = useRef(null)
 
   const fordeling = useMemo(() => (fund.length ? fordelKolonner(fund) : null), [fund])
@@ -26,7 +24,8 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
         const erXbrl = /\.(xml|xhtml|html?)$/i.test(f.name)
         const r = erXbrl ? await importerXbrlFil(f) : await importerPdf(f)
         if (!r.kolonner.length) {
-          setStatus({ type: 'advarsel', tekst: `${f.name}: ingen regnskabsposter blev genkendt. Indtast tallene i trin 2, eller prøv en iXBRL-adresse i stedet.` })
+          const forklaring = erXbrl ? diagnostikTekst(r.diagnostik) : 'Indtast tallene i trin 2, eller prøv en iXBRL-adresse i stedet.'
+          setStatus({ type: 'advarsel', tekst: `${f.name}: ingen regnskabsposter blev genkendt. ${forklaring}` })
         }
         nye.push(r)
       } catch (e) {
@@ -52,7 +51,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     try {
       const r = await importerIxbrlLink(link.trim())
       if (!r.kolonner.length) {
-        setStatus({ type: 'advarsel', tekst: 'Dokumentet blev hentet, men indeholdt ingen genkendte XBRL-poster. Kontrollér at adressen peger på selve iXBRL-filen.' })
+        setStatus({ type: 'advarsel', tekst: `Dokumentet blev hentet, men indeholdt ingen genkendte XBRL-poster. ${diagnostikTekst(r.diagnostik)}` })
       } else {
         setFund(f => [...f, r])
         setDataset(d => ({ ...d, virksomhed: d.virksomhed || r.virksomhed || '', enhed: r.enhed || d.enhed }))
@@ -82,18 +81,25 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
   async function hentFraTraef (liste) {
     setArbejder(true); setStatus(null)
     const nye = []
+    const advarsler = []
     for (const r of liste) {
       if (!r.xbrl) continue
       try {
         const d = await importerIxbrlLink(r.xbrl)
+        if (!d.kolonner.length) {
+          advarsler.push(`Årsrapport ${r.aar}: ingen regnskabsposter blev genkendt. ${diagnostikTekst(d.diagnostik)}`)
+        }
         nye.push({ ...d, kilde: `Årsrapport ${r.aar}` })
       } catch (e) {
-        setStatus({ type: 'fejl', tekst: `Årsrapport ${r.aar}: ${e.message}` })
+        advarsler.push(`Årsrapport ${r.aar}: ${e.message}`)
       }
     }
     if (nye.length) {
       setFund(f => [...f, ...nye])
       setDataset(d => ({ ...d, virksomhed: d.virksomhed || nye[0].virksomhed || '' }))
+    }
+    if (advarsler.length) {
+      setStatus({ type: nye.length ? 'advarsel' : 'fejl', tekst: advarsler.join(' ') })
     }
     setArbejder(false)
   }
@@ -220,7 +226,15 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
 
       {fordeling && <Fordelingskort fordeling={fordeling} anvend={anvend} />}
 
-      {fund.length > 0 && (
+      {fund.length > 0 && !fordeling && (
+        <div className="besked advarsel">
+          Ingen af de {fund.length} indlæste dokumenter indeholdt regnskabsposter, der kunne
+          genkendes, så der kan endnu ikke vises en samlet tabel. Se forklaringen ud for hvert
+          dokument nedenfor, eller indtast tallene i trin 2.
+        </div>
+      )}
+
+      {fund.length > 0 && fordeling && (
         <p className="hjaelp" style={{ marginTop: -6 }}>
           Tabellen ovenfor viser de fordelte tal. Her nedenfor er hvert regnskabs egne,
           rå kolonner — til at kontrollere kilden eller placere en enkelt kolonne manuelt,
@@ -242,6 +256,11 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
               Fjern
             </button>
           </summary>
+          {!f.kolonner.length && (
+            <p className="hjaelp">
+              {f.diagnostik ? diagnostikTekst(f.diagnostik) : 'Ingen regnskabsposter blev genkendt i dokumentet. Indtast tallene i trin 2.'}
+            </p>
+          )}
           <div className="tabel-omslag">
             <table className="data">
               <thead>

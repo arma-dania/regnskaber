@@ -27,9 +27,12 @@ export default function App () {
   const [trin, setTrin] = useState(0)
   const [travl, setTravl] = useState(null)
   const [kvittering, setKvittering] = useState(null)
-  // Ligger her (og ikke i ImportPanel) så de indlæste regnskaber ikke forsvinder,
-  // hvis man går videre til et andet trin og siden vender tilbage for at rette i dem.
+  // Ligger her (og ikke i ImportPanel) så de indlæste regnskaber, det indtastede
+  // CVR-nummer og søgeresultatet ikke forsvinder, hvis man går videre til et
+  // andet trin og siden vender tilbage for at rette i dem.
   const [fund, setFund] = useState([])
+  const [cvr, setCvr] = useState('')
+  const [traf, setTraf] = useState(null)
 
   useEffect(() => {
     try { localStorage.setItem(NOEGLE, JSON.stringify(dataset)) } catch { /* fx privat browsing */ }
@@ -71,6 +74,8 @@ export default function App () {
     if (!confirm('Alle indtastede tal slettes. Fortsæt?')) return
     setDataset(emptyDataset())
     setFund([])
+    setCvr('')
+    setTraf(null)
     setTrin(0)
     setKvittering('Skemaet er tømt.')
   }
@@ -107,7 +112,12 @@ export default function App () {
       <main>
         {kvittering && <div className="besked">{kvittering}</div>}
 
-        {trin === 0 && <ImportPanel dataset={dataset} setDataset={setDataset} gaaTilTrin={setTrin} fund={fund} setFund={setFund} />}
+        {trin === 0 && (
+          <ImportPanel
+            dataset={dataset} setDataset={setDataset} gaaTilTrin={setTrin}
+            fund={fund} setFund={setFund} cvr={cvr} setCvr={setCvr} traf={traf} setTraf={setTraf}
+          />
+        )}
         {trin === 1 && (
           <>
             <DataGrid dataset={dataset} setDataset={setDataset} />
