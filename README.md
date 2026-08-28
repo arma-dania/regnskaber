@@ -60,7 +60,6 @@ og manuel indtastning kører helt i browseren.
 | --- | --- |
 | `TILLAD_ALLE_VAERTER` | Sæt til `true`, hvis proxyen skal kunne hente iXBRL fra andre værter end de danske regnskabsservere. Lad den være slået fra på en offentlig side. |
 | `VIRK_BRUGER`, `VIRK_KODE` | Kun nødvendige, hvis Erhvervsstyrelsens distributionsindeks kræver legitimation. Rekvireres hos Erhvervsstyrelsen på 35 29 10 00. |
-| `ANTHROPIC_API_KEY` | Kræves for AI-dialogen om omformningen på trin 2 (Analyseform). Nøglen oprettes på [console.anthropic.com](https://console.anthropic.com). Uden nøgle svarer dialogen med en forklarende fejl i stedet for at fejle uforståeligt. Kald til Anthropics API koster efter forbrug — se [priser](https://www.anthropic.com/pricing). |
 
 ### Fejlsøgning: 403 fra Virk
 
@@ -111,14 +110,20 @@ selv disse fire poster sammen. Det er et bedste bud på taksonomiens navne for
 enkeltposterne, så tjek tallet mod regnskabets note om personaleomkostninger, hvis det er
 muligt.
 
-## AI-dialog om omformningen
+## Flyt og læg poster sammen
 
-På trin 2 (Analyseform) kan man spørge en AI om, hvordan regnskabet er lagt om til
-analyseform — fx om en post bør flyttes eller lægges sammen med en anden. AI'en kender
-regnskabets tal, som de aktuelt står i skemaet, men retter ikke selv i dem; forslag skal
-selv indtastes i skemaet. Kræver `ANTHROPIC_API_KEY` sat i Netlify (se Miljøvariabler
-ovenfor) — uden nøgle viser dialogen blot en forklarende fejl. Proxyen står i
-`netlify/functions/ai-omformning.js`.
+På trin 2 (Analyseform) kan poster inden for samme afsnit trækkes ind over hinanden for at
+flytte eller lægge dem sammen — kildens tal lægges til målets tal i hvert år, kilden
+tømmes, og målet foreslås et nyt, redigerbart navn (fx "Tilgodehavender fra salg
+(varedebitorer) (inkl. andre tilgodehavender)"). Afledte (beregnede) poster kan ikke
+trækkes, da de bygger på de øvrige poster.
+
+Knappen **Foreslå omformning** kører en fast, gennemsigtig regel over et lille sæt
+veletablerede par af poster (fx tilgodehavender/andre tilgodehavender, hensatte
+forpligtelser/langfristet gæld i `src/lib/omformning.js`) og foreslår kun en
+sammenlægning, hvis den ene post konsekvent udgør under 15 % af den anden i alle år, den
+forekommer i. Hvert forslag skal godkendes for sig via samme bekræftelsesdialog som
+træk-og-slip — appen ændrer intet af sig selv.
 
 ## Fire balancedatoer, tre analyseår
 
@@ -156,10 +161,9 @@ src/lib/fordeling.js    Fordeling af fire balancedatoer på tre år plus primo
 src/lib/ixbrlImport.js  Mapping fra fsa- og ifrs-full-taksonomien til analyseformen
 src/lib/exportExcel.js  Fire ark: analyseform, nøgletal, beregningsgrundlag, definitioner
 src/lib/exportWord.js   Rapport med tabeller, grafer og kommentarfelter
-src/lib/aiOmformning.js Opsummerer regnskabet og kalder AI-dialogen om omformningen
-netlify/functions/ixbrl.js          Proxy, der henter iXBRL-dokumenter
-netlify/functions/regnskaber.js     Opslag af årsrapporter på CVR-nummer
-netlify/functions/ai-omformning.js  Proxy til Anthropics API for AI-dialogen
+src/lib/omformning.js   Forslag til sammenlægning af poster i analyseformen
+netlify/functions/ixbrl.js       Proxy, der henter iXBRL-dokumenter
+netlify/functions/regnskaber.js  Opslag af årsrapporter på CVR-nummer
 ```
 
 ## Licens

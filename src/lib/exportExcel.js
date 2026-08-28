@@ -15,7 +15,7 @@ export function byggeArbejdsbog (dataset) {
   SECTIONS.forEach(sec => {
     analyse.push([sec.title.toUpperCase()])
     FIELDS.filter(f => f.section === sec.id).forEach(f => {
-      const raekke = [f.label]
+      const raekke = [dataset.posterLabels?.[f.key] ?? f.label]
       dataset.aar.forEach(y => {
         const v = withDerived(y.values, y.manual)
         raekke.push(v[f.key] ?? null)

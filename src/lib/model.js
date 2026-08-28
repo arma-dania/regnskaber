@@ -82,8 +82,33 @@ export function emptyDataset () {
     enhed: '1.000 kr.',
     indeksBasisaar: 0,
     aar: [emptyYear('År 1'), emptyYear('År 2'), emptyYear('År 3')],
-    primo: {}
+    primo: {},
+    posterLabels: {}
   }
+}
+
+/**
+ * Lægger to ikke-afledte poster sammen ved træk-og-slip eller et godkendt
+ * omformningsforslag: kildens tal lægges til målets tal i hvert år, kilden
+ * tømmes, og målet får det (eventuelt rettede) foreslåede navn. Ændrer intet
+ * ved de afledte summer, som stadig regner ud fra de rå poster.
+ */
+export function laegPosterSammen (dataset, kildeKey, maalKey, nytNavn) {
+  const kopi = structuredClone(dataset)
+  kopi.aar.forEach(y => {
+    const kildeVaerdi = y.values[kildeKey]
+    const maalVaerdi = y.values[maalKey]
+    if (kildeVaerdi != null || maalVaerdi != null) {
+      y.values[maalKey] = (kildeVaerdi || 0) + (maalVaerdi || 0)
+    }
+    y.values[kildeKey] = null
+    if (y.sammensat) {
+      delete y.sammensat[kildeKey]
+      delete y.sammensat[maalKey]
+    }
+  })
+  kopi.posterLabels = { ...(kopi.posterLabels || {}), [maalKey]: nytNavn }
+  return kopi
 }
 
 // Afledte poster udfyldes kun, hvor der ikke allerede står et tal.
