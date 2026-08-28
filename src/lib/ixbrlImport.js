@@ -1,36 +1,41 @@
-// Mapping fra den danske årsrapporttaksonomi (fsa) til analyseformen.
-// Flere navne kan pege på samme post – det første fundne vinder.
+// Mapping fra den danske årsrapporttaksonomi (fsa) og fra den engelske
+// IFRS-taksonomi (ifrs-full) til analyseformen. Store/børsnoterede selskaber
+// aflægger ofte årsrapport efter IFRS med engelske betegnelser i stedet for
+// fsa, og de to taksonomier bruger til dels forskellige navne for samme post
+// (fx trade receivables). Flere navne kan pege på samme post – det første
+// fundne vinder. Navnerummet (fsa: / ifrs-full: / …) er ligegyldigt, da kun
+// selve elementnavnet efter kolon bruges til opslag.
 const XBRL_MAP = {
   omsaetning: ['Revenue', 'SalesRevenue', 'RevenueFromContractsWithCustomers'],
   vareforbrug: ['CostOfSales', 'RawMaterialsAndConsumablesUsed', 'ProductionCosts', 'CostOfGoodsSold'],
   bruttoresultat: ['GrossProfitLoss', 'GrossResult', 'GrossProfit'],
   personaleomkostninger: ['EmployeeBenefitsExpense', 'StaffCosts'],
-  andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses', 'DistributionCosts', 'AdministrativeExpenses'],
-  afskrivninger: ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'DepreciationAmortisationExpense', 'DepreciationAndAmortisation'],
+  andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses', 'DistributionCosts', 'AdministrativeExpenses', 'AdministrativeExpense', 'OtherOperatingExpense'],
+  afskrivninger: ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'DepreciationAmortisationExpense', 'DepreciationAndAmortisation', 'DepreciationDepletionAndAmortisationExpense'],
   resultatPrimaerDrift: ['ProfitLossFromOrdinaryOperatingActivities', 'OperatingProfitLoss', 'ProfitLossFromOperatingActivities'],
   finansielleIndtaegter: ['OtherFinanceIncome', 'FinanceIncome', 'FinancialIncome'],
   finansielleOmkostninger: ['OtherFinanceExpenses', 'FinanceCosts', 'FinancialExpenses', 'InterestExpense'],
   resultatFoerSkat: ['ProfitLossFromOrdinaryActivitiesBeforeTax', 'ProfitLossBeforeTax'],
-  skat: ['TaxExpense', 'TaxExpenseOnOrdinaryActivities', 'IncomeTaxExpense'],
+  skat: ['TaxExpense', 'TaxExpenseOnOrdinaryActivities', 'IncomeTaxExpense', 'IncomeTaxExpenseContinuingOperations'],
   aaretsResultat: ['ProfitLoss'],
 
-  immaterielleAnlaeg: ['IntangibleAssets'],
+  immaterielleAnlaeg: ['IntangibleAssets', 'IntangibleAssetsOtherThanGoodwill'],
   materielleAnlaeg: ['PropertyPlantAndEquipment', 'TangibleAssets'],
-  finansielleAnlaeg: ['LongtermInvestmentsAndReceivables', 'FinancialAssets'],
+  finansielleAnlaeg: ['LongtermInvestmentsAndReceivables', 'FinancialAssets', 'OtherNoncurrentFinancialAssets', 'NoncurrentFinancialAssets'],
   anlaegsaktiver: ['NoncurrentAssets', 'FixedAssets'],
   varelager: ['Inventories'],
-  varedebitorer: ['ShorttermTradeReceivables', 'TradeReceivables'],
-  andreTilgodehavender: ['ShorttermReceivables', 'OtherShorttermReceivables'],
+  varedebitorer: ['ShorttermTradeReceivables', 'TradeReceivables', 'CurrentTradeReceivables', 'TradeAndOtherCurrentReceivables'],
+  andreTilgodehavender: ['ShorttermReceivables', 'OtherShorttermReceivables', 'OtherCurrentReceivables'],
   likvider: ['CashAndCashEquivalents'],
   omsaetningsaktiver: ['CurrentAssets'],
   aktiverIAlt: ['Assets'],
 
   egenkapital: ['Equity'],
-  hensatteForpligtelser: ['Provisions'],
+  hensatteForpligtelser: ['Provisions', 'NoncurrentProvisions'],
   langfristetGaeld: ['LongtermLiabilitiesOtherThanProvisions', 'NoncurrentLiabilities'],
-  leverandoergaeld: ['ShorttermTradePayables', 'TradePayables'],
+  leverandoergaeld: ['ShorttermTradePayables', 'TradePayables', 'CurrentTradePayablesToTradeSuppliers', 'TradeAndOtherCurrentPayablesToTradeSuppliers'],
   kortfristetGaeld: ['ShorttermLiabilitiesOtherThanProvisions', 'CurrentLiabilities'],
-  passiverIAlt: ['LiabilitiesAndEquity'],
+  passiverIAlt: ['LiabilitiesAndEquity', 'EquityAndLiabilities'],
   pengestroemPrimaerDrift: ['CashFlowFromOperatingActivities', 'CashFlowsFromUsedInOperatingActivities']
 }
 

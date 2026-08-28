@@ -88,9 +88,14 @@ og balancen kontrolleres undervejs. Betragt PDF-indlæsningen som et udkast, ikk
 op i Erhvervsstyrelsens distributionsindeks, viser dem med regnskabsperiode og henter de tre
 nyeste XBRL-dokumenter med ét klik. Det er den pålidelige vej ind.
 
-**iXBRL.** Her er tallene mærket op med begreber fra den danske årsrapporttaksonomi, så
-indlæsningen er pålidelig. Mapningen står i `src/lib/ixbrlImport.js`. Kun kontekster uden
-dimensioner bruges, så segmentoplysninger ikke forstyrrer hovedtallene.
+**iXBRL.** Her er tallene mærket op med begreber fra taksonomien, så indlæsningen er
+pålidelig. Både den danske årsrapporttaksonomi (fsa) og den engelske IFRS-taksonomi
+(ifrs-full) genkendes — store/børsnoterede selskaber aflægger ofte årsrapport efter IFRS,
+som til dels bruger andre navne for samme post (fx `TradeReceivables` i fsa mod
+`CurrentTradeReceivables` i ifrs-full). Mapningen står i `src/lib/ixbrlImport.js`. Kun
+kontekster uden dimensioner bruges, så segmentoplysninger ikke forstyrrer hovedtallene —
+er en post kun tagget som en dimensioneret opdeling (fx en note udelukkende opdelt på en
+akse uden en samlet sum uden dimension), kommer den ikke med.
 
 Nogle regnskaber tagger aldrig en samlet personaleomkostning – kun de enkeltposter,
 årsregnskabsloven kræver specifikation af (§98a): løn, pension og andre omkostninger til
@@ -132,7 +137,7 @@ src/lib/model.js        Regnskabet i analyseform, afledte poster, kontrol af bal
 src/lib/nogletal.js     De 28 nøgletal: formler, beregning, forklaringer
 src/lib/pdfImport.js    Tekstudtræk og genkendelse af poster i PDF
 src/lib/fordeling.js    Fordeling af fire balancedatoer på tre år plus primo
-src/lib/ixbrlImport.js  Mapping fra fsa-taksonomien til analyseformen
+src/lib/ixbrlImport.js  Mapping fra fsa- og ifrs-full-taksonomien til analyseformen
 src/lib/exportExcel.js  Fire ark: analyseform, nøgletal, beregningsgrundlag, definitioner
 src/lib/exportWord.js   Rapport med tabeller, grafer og kommentarfelter
 netlify/functions/ixbrl.js       Proxy, der henter iXBRL-dokumenter
