@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { FIELDS, SECTIONS, PRIMO_FIELDS, KOMPONENT_LABELS, withDerived, validate } from '../lib/model.js'
+import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, KOMPONENT_LABELS, withDerived, validate, laegPosterSammen } from '../lib/model.js'
 import { parseDanskTal } from '../lib/pdfImport.js'
-import OmformningChat from './OmformningChat.jsx'
+import { foreslaOmformning } from '../lib/omformning.js'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
+
+const postNavn = (dataset, key) => dataset.posterLabels?.[key] ?? FIELD_MAP[key]?.label ?? key
 
 const sammensatForklaring = grupper => 'Lagt sammen af regnskabets egne poster: ' +
   Object.entries(grupper).map(([g, v]) => `${KOMPONENT_LABELS[g] || g} ${visTal(v)}`).join(', ') +
@@ -11,7 +13,34 @@ const sammensatForklaring = grupper => 'Lagt sammen af regnskabets egne poster: 
 
 export default function DataGrid ({ dataset, setDataset }) {
   const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primo || {}).length > 0)
+  const [dragKilde, setDragKilde] = useState(null)
+  const [dragOverMaal, setDragOverMaal] = useState(null)
+  const [pendingMerge, setPendingMerge] = useState(null)
+  const [forslag, setForslag] = useState(null)
   const noter = validate(dataset)
+
+  const kanFlyttes = f => !f.derived
+
+  const foreslaSammenlaegning = (kildeKey, maalKey) => {
+    if (!kildeKey || kildeKey === maalKey) return
+    const kilde = FIELD_MAP[kildeKey]
+    const maal = FIELD_MAP[maalKey]
+    if (!kilde || !maal || kilde.derived || maal.derived || kilde.section !== maal.section) return
+    setPendingMerge({
+      kildeKey,
+      maalKey,
+      foreslaetNavn: `${postNavn(dataset, maalKey)} (inkl. ${postNavn(dataset, kildeKey).toLowerCase()})`
+    })
+  }
+
+  const bekraeftSammenlaegning = () => {
+    if (!pendingMerge) return
+    setDataset(d => laegPosterSammen(d, pendingMerge.kildeKey, pendingMerge.maalKey, pendingMerge.foreslaetNavn.trim() || postNavn(d, pendingMerge.maalKey)))
+    setForslag(f => f?.filter(fo => fo.id !== `${pendingMerge.kildeKey}->${pendingMerge.maalKey}`) || null)
+    setPendingMerge(null)
+  }
+
+  const koerForslag = () => setForslag(foreslaOmformning(dataset))
 
   const saet = (aarIndex, key, raa) => {
     setDataset(d => {
@@ -54,8 +83,55 @@ export default function DataGrid ({ dataset, setDataset }) {
         i et klasse B-regnskab er jo ikke altid omsætning minus vareforbrug. Tøm feltet, hvis posten
         alligevel skal beregnes. Omkostninger indtastes som positive tal. Tal markeret med Σ er lagt
         sammen af flere poster fra regnskabet under indlæsningen og kan ikke rettes her — hold musen
-        over tallet for at se hvilke poster.
+        over tallet for at se hvilke poster. Poster inden for samme afsnit kan trækkes ind over
+        hinanden for at flytte eller lægge dem sammen.
       </p>
+
+      <div className="kort udskriv-skjul">
+        <button className="knap lys" onClick={koerForslag}>Foreslå omformning</button>
+        <p className="hjaelp" style={{ marginTop: 8, marginBottom: forslag ? 12 : 0 }}>
+          Ser på posterne inden for samme afsnit og foreslår sammenlægninger, hvor en post
+          konsekvent er lille i forhold til naboposten. Kun forslag — intet ændres, før du
+          godkender det.
+        </p>
+        {forslag && forslag.length === 0 && (
+          <p className="hjaelp" style={{ margin: 0 }}>Ingen oplagte sammenlægninger fundet.</p>
+        )}
+        {forslag && forslag.length > 0 && (
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {forslag.map(fo => (
+              <li key={fo.id} className="besked" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <span>{fo.begrundelse}</span>
+                <span style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                  <button className="knap primaer" style={{ padding: '4px 10px', fontSize: 12 }}
+                    onClick={() => foreslaSammenlaegning(fo.kildeKey, fo.maalKey)}>Se forslag</button>
+                  <button className="knap lys" style={{ padding: '4px 10px', fontSize: 12 }}
+                    onClick={() => setForslag(f => f.filter(x => x.id !== fo.id))}>Afvis</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {pendingMerge && (
+        <div className="kort" style={{ borderColor: 'var(--petrol)' }}>
+          <h3>Læg poster sammen?</h3>
+          <p className="hjaelp">
+            "{postNavn(dataset, pendingMerge.kildeKey)}" lægges sammen med
+            "{postNavn(dataset, pendingMerge.maalKey)}" i alle år. "{postNavn(dataset, pendingMerge.kildeKey)}" tømmes.
+          </p>
+          <label className="felt" htmlFor="nyt-postnavn">Navn på den sammenlagte post</label>
+          <input
+            id="nyt-postnavn" type="text" value={pendingMerge.foreslaetNavn}
+            onChange={e => setPendingMerge(p => ({ ...p, foreslaetNavn: e.target.value }))}
+          />
+          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            <button className="knap primaer" onClick={bekraeftSammenlaegning}>Bekræft sammenlægning</button>
+            <button className="knap lys" onClick={() => setPendingMerge(null)}>Annullér</button>
+          </div>
+        </div>
+      )}
 
       <div className="kort">
         <div className="gitter-2">
@@ -114,10 +190,19 @@ export default function DataGrid ({ dataset, setDataset }) {
                 <Fragmenter key={sec.id}>
                   <tr className="gruppe"><td colSpan={1 + (visPrimo ? 1 : 0) + dataset.aar.length}>{sec.title}</td></tr>
                   {FIELDS.filter(f => f.section === sec.id).map(f => (
-                    <tr key={f.key} className={f.derived ? 'sum' : ''}>
+                    <tr
+                      key={f.key}
+                      className={(f.derived ? 'sum' : '') + (dragOverMaal === f.key ? ' traek-over' : '')}
+                      draggable={kanFlyttes(f)}
+                      onDragStart={kanFlyttes(f) ? e => { setDragKilde(f.key); e.dataTransfer.effectAllowed = 'move' } : undefined}
+                      onDragEnd={() => { setDragKilde(null); setDragOverMaal(null) }}
+                      onDragOver={kanFlyttes(f) ? e => { if (dragKilde && dragKilde !== f.key) { e.preventDefault(); setDragOverMaal(f.key) } } : undefined}
+                      onDragLeave={() => setDragOverMaal(m => (m === f.key ? null : m))}
+                      onDrop={kanFlyttes(f) ? e => { e.preventDefault(); foreslaSammenlaegning(dragKilde, f.key); setDragKilde(null); setDragOverMaal(null) } : undefined}
+                    >
                       <td>
-                        <span className="postnavn">
-                          {f.label}
+                        <span className={'postnavn' + (kanFlyttes(f) ? ' traekbar' : '')} title={kanFlyttes(f) ? 'Træk til en anden post i samme afsnit for at flytte eller lægge sammen' : undefined}>
+                          {postNavn(dataset, f.key)}
                           {f.derived && <span className="mærkat" title={'Beregnes som: ' + f.derived}>beregnes</span>}
                         </span>
                       </td>
@@ -126,7 +211,7 @@ export default function DataGrid ({ dataset, setDataset }) {
                           {PRIMO_FIELDS.includes(f.key)
                             ? <input type="text" inputMode="decimal" value={visTal(dataset.primo?.[f.key])}
                                 onChange={e => saetPrimo(f.key, e.target.value)}
-                                aria-label={`${f.label}, primo`} />
+                                aria-label={`${postNavn(dataset, f.key)}, primo`} />
                             : <span style={{ color: 'var(--linje)' }}>·</span>}
                         </td>
                       )}
@@ -140,7 +225,7 @@ export default function DataGrid ({ dataset, setDataset }) {
                               <span
                                 className="sammensat-vaerdi" tabIndex={0}
                                 title={sammensatForklaring(sammensat)}
-                                aria-label={`${f.label}, ${y.label || 'år ' + (i + 1)}: ${visTal(vaerdi)}. ${sammensatForklaring(sammensat)}`}
+                                aria-label={`${postNavn(dataset, f.key)}, ${y.label || 'år ' + (i + 1)}: ${visTal(vaerdi)}. ${sammensatForklaring(sammensat)}`}
                               >
                                 Σ {visTal(vaerdi)}
                               </span>
@@ -154,7 +239,7 @@ export default function DataGrid ({ dataset, setDataset }) {
                               className={f.derived ? (eksplicit ? 'manuel' : 'afledt') : ''}
                               value={visTal(vaerdi)}
                               onChange={e => saet(i, f.key, e.target.value)}
-                              aria-label={`${f.label}, ${y.label || 'år ' + (i + 1)}`}
+                              aria-label={`${postNavn(dataset, f.key)}, ${y.label || 'år ' + (i + 1)}`}
                             />
                           </td>
                         )
@@ -167,8 +252,6 @@ export default function DataGrid ({ dataset, setDataset }) {
           </table>
         </div>
       </div>
-
-      <OmformningChat dataset={dataset} />
     </>
   )
 }

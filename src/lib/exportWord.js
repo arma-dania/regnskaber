@@ -62,7 +62,7 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
     felter.forEach(f => {
       raekker.push(new TableRow({
         children: [
-          celle(f.label),
+          celle(dataset.posterLabels?.[f.key] ?? f.label),
           ...dataset.aar.map(y => celle(tal(withDerived(y.values, y.manual)[f.key], f.unit === 'kr' ? 2 : 0), { hoejre: true }))
         ]
       }))
