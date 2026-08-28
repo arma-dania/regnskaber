@@ -7,20 +7,25 @@ const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
  * analyseår; det ældste sammenligningsår bliver primobalance, så gennemsnitstal
  * kan beregnes korrekt allerede i det første analyseår.
  *
- * Hvor to regnskaber dækker samme år, vinder det regnskab, hvor året er
- * hovedåret — sammenligningskolonnen er ofte forkortet. Afviger de to kilder
- * fra hinanden, meldes det som en konflikt i stedet for at blive tiet ihjel.
+ * Hvor to regnskaber dækker samme år, vinder tallet fra den nyeste årsrapport
+ * — en 2025-rapports sammenligningstal for 2024 går forud for 2024-rapportens
+ * egne tal, fordi en senere rapport kan indeholde rettede eller omgjorte tal.
+ * "Nyest" afgøres af regnskabets eget hovedår (den første kolonne i det
+ * enkelte dokument), ikke af den rækkefølge, regnskaberne blev indlæst i.
+ * Afviger to kilder fra hinanden, meldes det som en konflikt i stedet for at
+ * blive tiet ihjel.
  */
 export function fordelKolonner (kilder) {
   const poster = []
   kilder.forEach((kilde, kildeIndex) => {
+    const kildeHovedaar = Number(kilde.kolonner[0]?.navn) || 0
     kilde.kolonner.forEach((kol, kolIndex) => {
       poster.push({
         aar: String(kol.navn).trim(),
         values: kol.values,
         sammensat: kol.sammensat || {},
         kilde: kilde.kilde,
-        hovedaar: kolIndex === 0,
+        kildeHovedaar,
         raekkefoelge: kildeIndex * 10 + kolIndex
       })
     })
@@ -51,7 +56,7 @@ export function fordelKolonner (kilder) {
 
   const konflikter = []
   const flettet = [...perAar.entries()].map(([aar, liste]) => {
-    const rangeret = [...liste].sort((a, b) => (b.hovedaar - a.hovedaar) || (a.raekkefoelge - b.raekkefoelge))
+    const rangeret = [...liste].sort((a, b) => (b.kildeHovedaar - a.kildeHovedaar) || (a.raekkefoelge - b.raekkefoelge))
     const values = {}
     const sammensat = {}
     const kilder = []
