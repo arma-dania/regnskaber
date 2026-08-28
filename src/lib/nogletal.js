@@ -74,7 +74,7 @@ export function buildContext (dataset, index) {
  * som resten af NOGLETAL, så NogletalKort og beregningen kan bruges uændret.
  */
 export function byggIndeksNogletal (dataset) {
-  const felter = (dataset.indeksFelter && dataset.indeksFelter.length) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
+  const felter = Array.isArray(dataset.indeksFelter) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
   return felter.map(key => {
     const label = FIELD_MAP[key]?.label || key
     return {

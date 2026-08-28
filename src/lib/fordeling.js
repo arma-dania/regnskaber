@@ -100,5 +100,9 @@ export function anvendFordeling (dataset, fordeling) {
     kopi.aar[i].manual = {}
   })
   kopi.primo = { ...kopi.primo, ...fordeling.primo }
+  // Et nyt regnskab lægges ind – afkrydsningerne til indekstal er for det
+  // forrige selskab og skal ikke følge med.
+  kopi.indeksFelter = []
+  delete kopi.indeksFelt
   return kopi
 }

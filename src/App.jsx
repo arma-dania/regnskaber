@@ -127,16 +127,16 @@ export default function App () {
               <p className="hjaelp" style={{ marginTop: -6 }}>Vælg én eller flere poster. Der beregnes et eget indekstal for hver post — de vises nederst, efter de børsrelaterede nøgletal.</p>
               <div className="indeks-poster">
                 {FIELDS.filter(f => f.section !== 'ovrigt').map(f => {
-                  const valgte = dataset.indeksFelter?.length ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
+                  const valgte = Array.isArray(dataset.indeksFelter) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
                   const valgt = valgte.includes(f.key)
                   return (
                     <label key={f.key} className="indeks-post">
                       <input
                         type="checkbox" checked={valgt}
                         onChange={e => setDataset(d => {
-                          const nuvaerende = d.indeksFelter?.length ? d.indeksFelter : [d.indeksFelt || 'omsaetning']
+                          const nuvaerende = Array.isArray(d.indeksFelter) ? d.indeksFelter : [d.indeksFelt || 'omsaetning']
                           const nye = e.target.checked ? [...nuvaerende, f.key] : nuvaerende.filter(k => k !== f.key)
-                          return { ...d, indeksFelter: nye.length ? nye : nuvaerende }
+                          return { ...d, indeksFelter: nye }
                         })}
                       />
                       {f.label}
