@@ -44,10 +44,6 @@ export function buildContext (dataset, index) {
   })()
   const gnsFremmedkapital = fkNu == null ? null : (fkFoer == null ? fkNu : (fkNu + fkFoer) / 2)
 
-  const renteNetto = (v.finansielleOmkostninger != null || v.finansielleIndtaegter != null)
-    ? (v.finansielleOmkostninger || 0) - (v.finansielleIndtaegter || 0)
-    : null
-
   const samledeDriftsomk = (v.vareforbrug != null || v.kapacitetsomkostninger != null)
     ? (v.vareforbrug || 0) + (v.kapacitetsomkostninger || 0)
     : null
@@ -64,13 +60,21 @@ export function buildContext (dataset, index) {
 
   return {
     v, prev, index, gns, gnsErSkoen, ultimoFoer,
-    gnsFremmedkapital, renteNetto, samledeDriftsomk, varekoeb, nulpunkt,
+    gnsFremmedkapital, samledeDriftsomk, varekoeb, nulpunkt,
     basis: (() => {
       const b = dataset.aar[dataset.indeksBasisaar ?? 0]
       return withDerived(b.values, b.manual)
     })(),
-    indeksFelt: dataset.indeksFelt || 'omsaetning'
+    indeksFelter: (dataset.indeksFelter && dataset.indeksFelter.length) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
   }
+}
+
+// Summerer de valgte poster for ét års beregningsgrundlag. Ingen af posterne
+// udfyldt giver null, så nøgletallet vises som "kan ikke beregnes".
+function summerIndeksPoster (grundlag, felter) {
+  const fundne = felter.filter(k => grundlag[k] != null)
+  if (!fundne.length) return null
+  return fundne.reduce((sum, k) => sum + grundlag[k], 0)
 }
 
 /**
@@ -94,9 +98,9 @@ export const NOGLETAL = [
     forklaring: 'Viser evnen til at forrente den af ejerne indskudte kapital. Kan også beregnes før skat ved at indsætte resultat før skat i tælleren.',
     calc: c => ({ num: c.v.aaretsResultat, den: c.gns('egenkapital'), pct: true, skoen: c.gnsErSkoen('egenkapital') }) },
 
-  { nr: 5, omraade: 'rentabilitet', navn: 'Fremmedkapitalens forrentning', enhed: '%', taeller: 'Renteomkostninger netto · 100', naevner: 'Gennemsnitlig fremmedkapital', bedre: 'ned',
+  { nr: 5, omraade: 'rentabilitet', navn: 'Fremmedkapitalens forrentning', enhed: '%', taeller: 'Renteomkostninger · 100', naevner: 'Gennemsnitlig fremmedkapital', bedre: 'ned',
     forklaring: 'Viser virksomhedens gennemsnitlige lånerente af fremmedkapital (gæld).',
-    calc: c => ({ num: c.renteNetto, den: c.gnsFremmedkapital, pct: true }) },
+    calc: c => ({ num: c.v.finansielleOmkostninger, den: c.gnsFremmedkapital, pct: true }) },
 
   { nr: 6, omraade: 'rentabilitet', navn: 'Finansiel gearing', enhed: 'gange', taeller: 'Gennemsnitlig fremmedkapital', naevner: 'Gennemsnitlig egenkapital', bedre: 'neutral',
     forklaring: 'Viser hvor mange kroner fremmedkapital (gældsforpligtelser), der er pr. krone egenkapital.',
@@ -107,8 +111,8 @@ export const NOGLETAL = [
     calc: c => ({ num: c.v.bruttoresultat, den: c.v.omsaetning, pct: true }) },
 
   { nr: 8, omraade: 'indtjening', navn: 'Indekstal', enhed: 'indeks', taeller: 'Årets tal · 100', naevner: 'Basisårets tal', bedre: 'op',
-    forklaring: 'Indeksberegninger supplerer tallenes udviklingsretning og -hastighed. Vælg selv hvilken post der indekseres.',
-    calc: c => ({ num: c.v[c.indeksFelt], den: c.basis[c.indeksFelt], pct: true }) },
+    forklaring: 'Indeksberegninger supplerer tallenes udviklingsretning og -hastighed. Vælg selv hvilke poster der indekseres — vælges flere, lægges de sammen.',
+    calc: c => ({ num: summerIndeksPoster(c.v, c.indeksFelter), den: summerIndeksPoster(c.basis, c.indeksFelter), pct: true }) },
 
   { nr: 9, omraade: 'indtjening', navn: 'Driftsmæssig gearing', enhed: '%', taeller: 'Kapacitetsomkostninger · 100', naevner: 'Samlede driftsomkostninger', bedre: 'neutral',
     forklaring: 'Viser kapacitetsomkostningernes andel af de samlede driftsomkostninger.',

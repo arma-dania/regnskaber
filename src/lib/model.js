@@ -53,6 +53,16 @@ export const FIELDS = [
 
 export const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.key, f]))
 
+// Danske navne på de enkeltposter, en importeret post kan være lagt sammen af
+// (se KOMPONENTER i ixbrlImport.js). Bruges til at forklare sammensatte tal
+// i analyseformen, hvor de ikke kan rettes manuelt.
+export const KOMPONENT_LABELS = {
+  loen: 'Lønninger',
+  pension: 'Pensioner',
+  socialSikring: 'Andre omkostninger til social sikring',
+  andet: 'Andre personaleomkostninger'
+}
+
 // Hele balancen kan have en primoværdi. Det ældste årsregnskabs
 // sammenligningsår leverer den fjerde balancedato, som gennemsnitstallene
 // i nøgletal 1, 3, 4, 5 og 6 skal bruge for det første analyseår.
@@ -63,7 +73,7 @@ export const PRIMO_FIELDS = FIELDS
 export function emptyYear (label = '') {
   const values = {}
   FIELDS.forEach(f => { values[f.key] = null })
-  return { label, values, manual: {} }
+  return { label, values, manual: {}, sammensat: {} }
 }
 
 export function emptyDataset () {

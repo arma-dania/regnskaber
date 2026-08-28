@@ -81,8 +81,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   border: 1px solid var(--linje); border-radius: 50%;
   width: 20px; height: 20px; display: grid; place-items: center;
 }
-.trin-knap[aria-current="true"] { color: var(--blaek); border-bottom-color: var(--okker); }
-.trin-knap[aria-current="true"] .nummer { background: var(--blaek); border-color: var(--blaek); color: #fff; }
+.trin-knap[aria-current="true"] { color: #fff; border-bottom-color: var(--okker); }
+.trin-knap[aria-current="true"] .nummer { background: var(--okker); border-color: var(--okker); color: #fff; }
 
 main { max-width: var(--maal); margin: 0 auto; padding: 26px 20px 90px; }
 
@@ -136,6 +136,10 @@ table.data input.afledt { color: var(--daempet); font-style: italic; }
 table.data input.manuel { color: var(--okker); font-style: normal; }
 .postnavn { display: flex; align-items: center; gap: 8px; }
 .mærkat { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--daempet); border: 1px solid var(--linje); padding: 1px 5px; border-radius: 2px; }
+.sammensat-vaerdi {
+  display: block; padding: 4px 6px; text-align: right; cursor: help;
+  border-bottom: 1px dotted var(--okker); color: var(--okker);
+}
 
 /* --- Nøgletalskort --- */
 .omraade-overskrift {
@@ -186,6 +190,14 @@ table.data input.manuel { color: var(--okker); font-style: normal; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+.indeks-poster {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 6px 14px; max-height: 220px; overflow-y: auto;
+  padding: 10px; border: 1px solid var(--linje); border-radius: var(--radius); background: #fbfcfa;
+}
+.indeks-post { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.indeks-post input { width: auto; }
 
 /* --- Tidslinje over de fire balancedatoer --- */
 .tidslinje { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 6px 0 16px; }

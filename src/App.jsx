@@ -118,22 +118,35 @@ export default function App () {
             </p>
 
             <div className="kort udskriv-skjul">
-              <label className="felt" htmlFor="indeksfelt">Indekstal (nøgletal 8) beregnes på</label>
-              <div className="gitter-2">
-                <select
-                  id="indeksfelt" value={dataset.indeksFelt || 'omsaetning'}
-                  onChange={e => setDataset(d => ({ ...d, indeksFelt: e.target.value }))}
-                >
-                  {FIELDS.filter(f => f.section !== 'ovrigt').map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
-                </select>
-                <select
-                  value={dataset.indeksBasisaar ?? 0}
-                  onChange={e => setDataset(d => ({ ...d, indeksBasisaar: Number(e.target.value) }))}
-                  aria-label="Basisår for indekstal"
-                >
-                  {aarNavne.map((a, i) => <option key={i} value={i}>Basisår: {a}</option>)}
-                </select>
+              <label className="felt">Indekstal (nøgletal 8) beregnes på</label>
+              <p className="hjaelp" style={{ marginTop: -6 }}>Vælg én eller flere poster. Vælges flere, lægges de sammen før indekstallet beregnes.</p>
+              <div className="indeks-poster">
+                {FIELDS.filter(f => f.section !== 'ovrigt').map(f => {
+                  const valgte = dataset.indeksFelter?.length ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
+                  const valgt = valgte.includes(f.key)
+                  return (
+                    <label key={f.key} className="indeks-post">
+                      <input
+                        type="checkbox" checked={valgt}
+                        onChange={e => setDataset(d => {
+                          const nuvaerende = d.indeksFelter?.length ? d.indeksFelter : [d.indeksFelt || 'omsaetning']
+                          const nye = e.target.checked ? [...nuvaerende, f.key] : nuvaerende.filter(k => k !== f.key)
+                          return { ...d, indeksFelter: nye.length ? nye : nuvaerende }
+                        })}
+                      />
+                      {f.label}
+                    </label>
+                  )
+                })}
               </div>
+              <select
+                style={{ marginTop: 12 }}
+                value={dataset.indeksBasisaar ?? 0}
+                onChange={e => setDataset(d => ({ ...d, indeksBasisaar: Number(e.target.value) }))}
+                aria-label="Basisår for indekstal"
+              >
+                {aarNavne.map((a, i) => <option key={i} value={i}>Basisår: {a}</option>)}
+              </select>
             </div>
 
             {OMRAADER.map(o => (

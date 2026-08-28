@@ -18,6 +18,7 @@ export function fordelKolonner (kilder) {
       poster.push({
         aar: String(kol.navn).trim(),
         values: kol.values,
+        sammensat: kol.sammensat || {},
         kilde: kilde.kilde,
         hovedaar: kolIndex === 0,
         raekkefoelge: kildeIndex * 10 + kolIndex
@@ -34,7 +35,7 @@ export function fordelKolonner (kilder) {
   if (!navngivne.length) {
     const sorteret = [...ukendte].sort((a, b) => a.raekkefoelge - b.raekkefoelge)
     return {
-      aar: sorteret.slice(0, 3).reverse().map((p, i) => ({ label: `År ${i + 1}`, values: p.values, kilder: [p.kilde] })),
+      aar: sorteret.slice(0, 3).reverse().map((p, i) => ({ label: `År ${i + 1}`, values: p.values, kilder: [p.kilde], sammensat: p.sammensat })),
       primo: sorteret[3]?.values || {},
       primoKilde: sorteret[3]?.kilde || null,
       konflikter: [],
@@ -52,6 +53,7 @@ export function fordelKolonner (kilder) {
   const flettet = [...perAar.entries()].map(([aar, liste]) => {
     const rangeret = [...liste].sort((a, b) => (b.hovedaar - a.hovedaar) || (a.raekkefoelge - b.raekkefoelge))
     const values = {}
+    const sammensat = {}
     const kilder = []
     rangeret.forEach(p => {
       if (!kilder.includes(p.kilde)) kilder.push(p.kilde)
@@ -61,8 +63,11 @@ export function fordelKolonner (kilder) {
           konflikter.push({ aar, felt: key, label: FIELD_MAP[key]?.label || key, valgt: values[key], anden: v, kilde: p.kilde })
         }
       })
+      Object.entries(p.sammensat || {}).forEach(([key, grupper]) => {
+        if (sammensat[key] == null) sammensat[key] = grupper
+      })
     })
-    return { aar, values, kilder }
+    return { aar, values, kilder, sammensat }
   }).sort((a, b) => Number(b.aar) - Number(a.aar))
 
   const analyseaar = flettet.slice(0, 3).reverse()
@@ -80,7 +85,7 @@ export function fordelKolonner (kilder) {
   }
 
   return {
-    aar: analyseaar.map(a => ({ label: a.aar, values: a.values, kilder: a.kilder })),
+    aar: analyseaar.map(a => ({ label: a.aar, values: a.values, kilder: a.kilder, sammensat: a.sammensat })),
     primo: primoPost?.values || {},
     primoAar: primoPost?.aar || null,
     primoKilde: primoPost?.kilder?.[0] || null,
@@ -102,6 +107,7 @@ export function anvendFordeling (dataset, fordeling) {
     if (!kopi.aar[i]) return
     kopi.aar[i].label = a.label
     kopi.aar[i].values = { ...kopi.aar[i].values, ...a.values }
+    kopi.aar[i].sammensat = { ...(a.sammensat || {}) }
     kopi.aar[i].manual = {}
   })
   kopi.primo = { ...kopi.primo, ...fordeling.primo }

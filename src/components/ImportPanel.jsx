@@ -113,6 +113,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin }) {
       } else {
         const aar = kopi.aar[maal]
         aar.values = { ...aar.values, ...kolonne.values }
+        aar.sammensat = { ...(aar.sammensat || {}), ...(kolonne.sammensat || {}) }
         if (!aar.label || /^År \d$/.test(aar.label)) aar.label = kolonne.navn
       }
       return kopi

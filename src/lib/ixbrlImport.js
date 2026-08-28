@@ -151,13 +151,17 @@ export function parseXbrlDokument (tekst, kilde = '') {
   })
 
   // Findes der ingen samlet post (fx personaleomkostninger), men mindst én
-  // delkomponent (løn, pension, …), bruges summen af delkomponenterne.
+  // delkomponent (løn, pension, …), bruges summen af delkomponenterne, og
+  // sammensætningen gemmes så den kan forklares i analyseformen.
   kolonner.forEach(k => {
     Object.keys(KOMPONENTER).forEach(key => {
       if (k.values[key] != null) return
-      const vaerdier = Object.values(k.komponenter?.[key] || {})
+      const grupper = k.komponenter?.[key] || {}
+      const vaerdier = Object.values(grupper)
       if (!vaerdier.length) return
       k.values[key] = vaerdier.reduce((sum, v) => sum + v, 0)
+      k.sammensat = k.sammensat || {}
+      k.sammensat[key] = { ...grupper }
     })
   })
 
@@ -171,7 +175,7 @@ export function parseXbrlDokument (tekst, kilde = '') {
     kolonner: sorteret
       .filter(([, k]) => Object.keys(k.values).length > 0)
       .slice(0, 4)
-      .map(([dato, k]) => ({ navn: dato.slice(0, 4), values: k.values }))
+      .map(([dato, k]) => ({ navn: dato.slice(0, 4), values: k.values, sammensat: k.sammensat || {} }))
   }
 }
 
