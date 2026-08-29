@@ -89,7 +89,18 @@ export default async (request) => {
           if (r.ok) {
             const tekst = await r.text()
             if (debug) {
-              return send(`OK ${r.status} · ${type} · ${tekst.length} tegn\n\n${tekst.slice(0, 800)}`)
+              // content-length viser, hvad Virk selv hævder at sende — er den langt
+              // større end tekst.length, er svaret skåret af undervejs; matcher den,
+              // sender Virk selv et kortere svar, end det rigtige dokument er. Halen
+              // (de sidste tegn af det modtagne) viser, om afskæringen sker midt i en
+              // tag/attribut (tyder på en afbrudt overførsel) eller ser velformet ud
+              // (tyder på, at Virk selv afslutter svaret der).
+              const contentLength = r.headers.get('content-length') || '(ikke angivet)'
+              return send(
+                `OK ${r.status} · ${type} · content-length: ${contentLength} · ${tekst.length} tegn modtaget\n\n` +
+                `--- FØRSTE 800 TEGN ---\n${tekst.slice(0, 800)}\n\n` +
+                `--- SIDSTE 800 TEGN ---\n${tekst.slice(-800)}`
+              )
             }
             if (/text\/html/i.test(type) && !/<ix:|xmlns:ix=/i.test(tekst.slice(0, 4000))) {
               return send(JSON.stringify({
