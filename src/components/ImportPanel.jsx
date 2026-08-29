@@ -83,20 +83,34 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     const nye = []
     const advarsler = []
     for (const r of liste) {
-      if (!r.xbrl) continue
-      try {
-        const d = await importerIxbrlLink(r.xbrl)
-        if (!d.kolonner.length) {
-          advarsler.push(`Årsrapport ${r.aar}: ingen regnskabsposter blev genkendt. ${diagnostikTekst(d.diagnostik)}`)
+      // Store selskaber indsender ofte flere separate XBRL-dokumenter under
+      // samme årsrapport (fx ét med stamdata/revisionspåtegning og ét med
+      // selve regnskabstallene) — alle hentes, så det rigtige ikke overses.
+      const urls = (r.xbrlAlle?.length ? r.xbrlAlle : [r.xbrl]).filter(Boolean)
+      if (!urls.length) continue
+      const dokumenter = []
+      const fejl = []
+      for (const url of urls) {
+        try {
+          dokumenter.push(await importerIxbrlLink(url))
+        } catch (e) {
+          fejl.push(e.message)
         }
-        nye.push({ ...d, kilde: `Årsrapport ${r.aar}` })
-      } catch (e) {
-        advarsler.push(`Årsrapport ${r.aar}: ${e.message}`)
       }
+      const flerTal = urls.length > 1
+      dokumenter.forEach((d, i) => {
+        nye.push({ ...d, kilde: `Årsrapport ${r.aar}` + (flerTal ? ` (dokument ${i + 1} af ${urls.length})` : '') })
+      })
+      const kolonneAntal = dokumenter.reduce((sum, d) => sum + d.kolonner.length, 0)
+      if (dokumenter.length && !kolonneAntal) {
+        const forklaringer = dokumenter.map(d => diagnostikTekst(d.diagnostik))
+        advarsler.push(`Årsrapport ${r.aar}: ingen regnskabsposter blev genkendt${flerTal ? ` i nogen af de ${urls.length} dokumenter` : ''}. ${forklaringer.join(' ')}`)
+      }
+      fejl.forEach(m => advarsler.push(`Årsrapport ${r.aar}: ${m}`))
     }
     if (nye.length) {
       setFund(f => [...f, ...nye])
-      setDataset(d => ({ ...d, virksomhed: d.virksomhed || nye[0].virksomhed || '' }))
+      setDataset(d => ({ ...d, virksomhed: d.virksomhed || nye.find(n => n.virksomhed)?.virksomhed || '' }))
     }
     if (advarsler.length) {
       setStatus({ type: nye.length ? 'advarsel' : 'fejl', tekst: advarsler.join(' ') })
@@ -205,17 +219,18 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
                     <td style={{ fontSize: 13 }}>{r.start && r.slut ? `${r.start} → ${r.slut}` : '–'}</td>
                     <td style={{ fontSize: 13 }}>{(r.offentliggjort || '').slice(0, 10)}</td>
                     <td style={{ fontSize: 12 }}>
-                      {r.xbrl && <a href={r.xbrl} target="_blank" rel="noreferrer">XBRL</a>}
-                      {r.xbrl && r.pdf ? ' · ' : ''}
-                      {r.pdf && <a href={r.pdf} target="_blank" rel="noreferrer">PDF</a>}
-                      {r.xbrl && (
-                        <>
-                          {' · '}
-                          <a href={`/.netlify/functions/ixbrl?url=${encodeURIComponent(r.xbrl)}&debug=1`} target="_blank" rel="noreferrer">
-                            fejlsøg
+                      {(r.xbrlAlle?.length ? r.xbrlAlle : [r.xbrl].filter(Boolean)).map((url, j, arr) => (
+                        <span key={j}>
+                          {j > 0 && ' · '}
+                          <a href={url} target="_blank" rel="noreferrer">XBRL{arr.length > 1 ? ` ${j + 1}` : ''}</a>
+                          {' '}
+                          <a href={`/.netlify/functions/ixbrl?url=${encodeURIComponent(url)}&debug=1`} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>
+                            (fejlsøg)
                           </a>
-                        </>
-                      )}
+                        </span>
+                      ))}
+                      {r.pdf && (r.xbrl || r.xbrlAlle?.length) ? ' · ' : ''}
+                      {r.pdf && <a href={r.pdf} target="_blank" rel="noreferrer">PDF</a>}
                     </td>
                     <td className="num">
                       <button className="knap lys" style={{ padding: '4px 10px', fontSize: 12 }}

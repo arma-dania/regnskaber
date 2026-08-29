@@ -54,6 +54,12 @@ export default async (request) => {
         const varighedDage = periode.startDato && periode.slutDato
           ? Math.round((new Date(periode.slutDato) - new Date(periode.startDato)) / 86400000)
           : null
+        // Store/børsnoterede selskaber indsender ofte flere separate
+        // XBRL-instanser under samme offentliggørelse — fx én med
+        // stamdata/revisionspåtegning og én med selve regnskabstallene.
+        // Alle XML-dokumenter hentes derfor med, ikke kun det første, så
+        // ingen af dem overses ved indlæsning.
+        const xbrlDok = dok.filter(d => /xml|xbrl/i.test(d.mime || '') || /\.xml$/i.test(d.url || ''))
         return {
           offentliggjort: s.offentliggoerelsesTidspunkt,
           start: periode.startDato,
@@ -61,7 +67,8 @@ export default async (request) => {
           aar: periode.slutDato ? String(periode.slutDato).slice(0, 4) : null,
           type: s.offentliggoerelsestype,
           varighedDage,
-          xbrl: dok.find(d => /xml|xbrl/i.test(d.mime || '') || /\.xml$/i.test(d.url || ''))?.url || null,
+          xbrl: xbrlDok[0]?.url || null,
+          xbrlAlle: xbrlDok.map(d => d.url),
           pdf: dok.find(d => /pdf/i.test(d.mime || ''))?.url || null,
           dokumenter: dok
         }
