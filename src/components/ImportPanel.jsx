@@ -205,7 +205,8 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
                     <td style={{ fontSize: 13 }}>{r.start && r.slut ? `${r.start} → ${r.slut}` : '–'}</td>
                     <td style={{ fontSize: 13 }}>{(r.offentliggjort || '').slice(0, 10)}</td>
                     <td style={{ fontSize: 12 }}>
-                      {r.xbrl ? 'XBRL' : ''}{r.xbrl && r.pdf ? ' · ' : ''}
+                      {r.xbrl && <a href={r.xbrl} target="_blank" rel="noreferrer">XBRL</a>}
+                      {r.xbrl && r.pdf ? ' · ' : ''}
                       {r.pdf && <a href={r.pdf} target="_blank" rel="noreferrer">PDF</a>}
                     </td>
                     <td className="num">
