@@ -78,12 +78,16 @@ export default function DataGrid ({ dataset, setDataset }) {
     <>
       <h2 className="sektion-titel">Regnskabet i analyseform</h2>
       <p className="sektion-intro">
-        Kursiverede grå tal er beregnet ud fra posterne over dem. Står der et tal med okker,
-        kommer det fra regnskabet eller fra dig, og det bliver aldrig regnet om — bruttofortjeneste
-        i et klasse B-regnskab er jo ikke altid omsætning minus vareforbrug. Tøm feltet, hvis posten
-        alligevel skal beregnes. Omkostninger indtastes som positive tal. Tal markeret med Σ er lagt
-        sammen af flere poster fra regnskabet under indlæsningen og kan ikke rettes her — hold musen
-        over tallet for at se hvilke poster. Poster inden for samme afsnit kan trækkes ind over
+        Tallenes farve viser, hvor de kommer fra. <strong>Kursiveret gråt</strong>: beregnet ud fra
+        posterne ovenfor og opdateres automatisk. <strong>Okker</strong>: fra regnskabet eller
+        indtastet af dig — bliver aldrig regnet om, heller ikke hvis posterne ovenfor ændres (fx er
+        bruttofortjeneste i et klasse B-regnskab ikke altid omsætning minus vareforbrug). Tøm
+        feltet, hvis posten alligevel skal beregnes. <strong>Σ</strong>: lagt sammen af flere poster
+        fra regnskabet under indlæsningen og kan ikke rettes her — hold musen over tallet for at se
+        hvilke poster.
+      </p>
+      <p className="sektion-intro">
+        Omkostninger indtastes som positive tal. Poster inden for samme afsnit kan trækkes ind over
         hinanden for at flytte eller lægge dem sammen.
       </p>
 
