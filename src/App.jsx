@@ -141,7 +141,7 @@ export default function App () {
                     <span className="antal">nøgletal {o.nrs[0]}–{o.nrs[o.nrs.length - 1]}</span>
                   </div>
                   <NogletalTabel nogletal={gruppeNogletal} resultater={resultater} aarNavne={aarNavne} enhed={dataset.enhed} />
-                  <div className="nogletal-gitter">
+                  <div className="nogletal-gitter" style={{ '--nt-kolonner': optimalKolonner(gruppeNogletal.length) }}>
                     {gruppeNogletal.map(n => (
                       <NogletalKort
                         key={n.nr} nogletal={n} resultater={resultater}
@@ -199,7 +199,7 @@ export default function App () {
                   <span className="antal">nøgletal 8</span>
                 </div>
                 <NogletalTabel nogletal={ekstraNogletal} resultater={resultater} aarNavne={aarNavne} enhed={dataset.enhed} />
-                <div className="nogletal-gitter">
+                <div className="nogletal-gitter" style={{ '--nt-kolonner': optimalKolonner(ekstraNogletal.length) }}>
                   {ekstraNogletal.map(n => (
                     <NogletalKort
                       key={n.nr} nogletal={n} resultater={resultater}
@@ -220,6 +220,18 @@ export default function App () {
       </main>
     </>
   )
+}
+
+// Vælger det bedste antal kolonner (højst 3), så graferne fordeler sig så
+// jævnt som muligt: tre i bredden, medmindre gruppens antal går bedre op
+// med to (fx 4 grafer bliver 2+2 i stedet for 3+1 med en ensom sidste graf).
+function optimalKolonner (antal, maks = 3) {
+  if (antal <= maks) return Math.max(antal, 1)
+  for (let k = maks; k >= 2; k--) {
+    const rest = antal % k
+    if (rest === 0 || rest >= 2) return k
+  }
+  return maks
 }
 
 // Sammendrag af en gruppes nøgletal for alle år, vist over graferne, så
