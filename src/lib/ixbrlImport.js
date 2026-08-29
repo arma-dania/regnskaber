@@ -211,12 +211,18 @@ export function parseXbrlDokument (tekst, kilde = '') {
   const sorteret = [...kolonner.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
   const virksomhed = (doc.querySelector('title')?.textContent || '').trim().slice(0, 80)
 
-  // De hyppigst forekommende ukendte navne er dem, der bedst forklarer,
-  // hvilken taksonomi eller opsætning dokumentet reelt bruger — fx til at
-  // udvide navnelisterne ovenfor med den rigtige betegnelse.
+  // De ukendte navne forklarer, hvilken taksonomi eller opsætning dokumentet
+  // reelt bruger — fx til at udvide navnelisterne ovenfor med den rigtige
+  // betegnelse. Et stort regnskab kan tagge langt over 50 forskellige
+  // begreber, og hovedtallene (omsætning, aktiver, …) optræder typisk kun
+  // nogle få gange hver — lige så ofte som mange noteposter — så en kort,
+  // hyppighedssorteret top-liste risikerer at drukne dem i note-støj.
+  // Listen sorteres derfor efter hyppighed, men er lang nok til, at
+  // hovedtallene bør være med, selv i et regnskab med mange noter.
+  diagnostik.antalUnikkeIkkeGenkendte = ikkeGenkendteNavne.size
   diagnostik.ikkeGenkendteNavne = [...ikkeGenkendteNavne.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 50)
     .map(([navn, antal]) => ({ navn, antal }))
 
   return {
@@ -242,9 +248,13 @@ export function diagnostikTekst (diagnostik) {
     return 'Dokumentet ser ikke ud til at indeholde XBRL-mærkede tal. Kontrollér, at adressen peger på selve regnskabsdokumentet og ikke en visningsside.'
   }
   if (!diagnostik.antalMatchede) {
-    const eksempler = (diagnostik.ikkeGenkendteNavne || []).slice(0, 8).map(n => n.navn).join(', ')
+    const navne = diagnostik.ikkeGenkendteNavne || []
+    const eksempler = navne.map(n => n.navn).join(', ')
+    const optaelling = diagnostik.antalUnikkeIkkeGenkendte > navne.length
+      ? ` (${navne.length} af ${diagnostik.antalUnikkeIkkeGenkendte} forskellige navne i dokumentet, mest hyppige først)`
+      : ''
     return 'Dokumentet indeholder XBRL-mærkede tal, men ingen af de kendte begreber fra fsa- eller ifrs-full-taksonomien blev genkendt. Regnskabet bruger muligvis en anden taksonomi eller opsætning.' +
-      (eksempler ? ` Navne fundet i dokumentet: ${eksempler}.` : '')
+      (eksempler ? ` Navne fundet i dokumentet${optaelling}: ${eksempler}.` : '')
   }
   if (diagnostik.antalUdelukketPgaDimension >= diagnostik.antalMatchede) {
     return 'Dokumentet indeholder genkendte tal, men de er alle opdelt på en dimension (fx segment eller selskab i en koncern) uden en samlet sum uden dimension. Prøv evt. et andet dokument fra samme regnskab (fx moderselskabstal i stedet for koncerntal).'
