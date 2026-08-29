@@ -30,7 +30,7 @@ body {
 
 h1, h2, h3 { font-family: 'IBM Plex Serif', Georgia, serif; font-weight: 600; margin: 0; }
 
-.tal, input[type="text"], .fraktion { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.tal, input[type="text"] { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 
 button { font: inherit; cursor: pointer; }
 
@@ -162,14 +162,6 @@ table.data input.manuel { color: var(--okker); font-style: normal; }
 .aendring.op { color: var(--op); }
 .aendring.ned { color: var(--ned); }
 .aendring.neutral { color: var(--daempet); }
-
-/* Signaturelementet: formlen som en rigtig brøk med årets egne tal indsat. */
-.fraktion { margin: 14px 0 6px; font-size: 12px; line-height: 1.35; color: var(--blaek); }
-.fraktion .taeller { padding-bottom: 3px; }
-.fraktion .naevner { padding-top: 3px; border-top: 1px solid var(--blaek); }
-.fraktion .tekst { color: var(--petrol); }
-.fraktion .tal-indsat { color: var(--okker); }
-.fraktion-omslag { display: inline-block; text-align: center; }
 
 .nt-graf { margin-top: 6px; }
 .nt-fod { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--daempet); padding: 6px 0 4px; border-top: 1px solid var(--linje-svag); margin-top: 8px; }

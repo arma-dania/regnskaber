@@ -3,7 +3,7 @@ import ImportPanel from './components/ImportPanel.jsx'
 import DataGrid from './components/DataGrid.jsx'
 import NogletalKort from './components/NogletalKort.jsx'
 import { emptyDataset, FIELDS, SECTIONS } from './lib/model.js'
-import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal } from './lib/nogletal.js'
+import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi } from './lib/nogletal.js'
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
 import { EKSEMPEL } from './lib/eksempel.js'
@@ -132,22 +132,26 @@ export default function App () {
               Word-dokumentet indeholder de samme grafer plus et tomt kommentarfelt til hvert nøgletal.
             </p>
 
-            {OMRAADER.map(o => (
-              <section key={o.id}>
-                <div className="omraade-overskrift">
-                  <h2>{o.title}</h2>
-                  <span className="antal">nøgletal {o.nrs[0]}–{o.nrs[o.nrs.length - 1]}</span>
-                </div>
-                <div className="nogletal-gitter">
-                  {NOGLETAL.filter(n => n.omraade === o.id).map(n => (
-                    <NogletalKort
-                      key={n.nr} nogletal={n} resultater={resultater}
-                      aarNavne={aarNavne} enhed={dataset.enhed}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
+            {OMRAADER.map(o => {
+              const gruppeNogletal = NOGLETAL.filter(n => n.omraade === o.id)
+              return (
+                <section key={o.id}>
+                  <div className="omraade-overskrift">
+                    <h2>{o.title}</h2>
+                    <span className="antal">nøgletal {o.nrs[0]}–{o.nrs[o.nrs.length - 1]}</span>
+                  </div>
+                  <NogletalTabel nogletal={gruppeNogletal} resultater={resultater} aarNavne={aarNavne} enhed={dataset.enhed} />
+                  <div className="nogletal-gitter">
+                    {gruppeNogletal.map(n => (
+                      <NogletalKort
+                        key={n.nr} nogletal={n} resultater={resultater}
+                        aarNavne={aarNavne} enhed={dataset.enhed}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
 
             <div className="kort udskriv-skjul">
               <label className="felt">Indekstal (nøgletal 8) beregnes på</label>
@@ -194,6 +198,7 @@ export default function App () {
                   <h2>Indekstal</h2>
                   <span className="antal">nøgletal 8</span>
                 </div>
+                <NogletalTabel nogletal={ekstraNogletal} resultater={resultater} aarNavne={aarNavne} enhed={dataset.enhed} />
                 <div className="nogletal-gitter">
                   {ekstraNogletal.map(n => (
                     <NogletalKort
@@ -214,5 +219,37 @@ export default function App () {
         )}
       </main>
     </>
+  )
+}
+
+// Sammendrag af en gruppes nøgletal for alle år, vist over graferne, så
+// tallene kan aflæses samlet, før man kigger på udviklingen i den enkelte graf.
+function NogletalTabel ({ nogletal, resultater, aarNavne, enhed }) {
+  const harSkoen = nogletal.some(n => resultater.some(r => r[n.nr].skoen))
+  return (
+    <div className="tabel-omslag">
+      <table className="data">
+        <thead>
+          <tr>
+            <th>Nøgletal</th>
+            {aarNavne.map((a, i) => <th key={i} className="num">{a}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {nogletal.map(n => (
+            <tr key={n.nr}>
+              <td>{n.visNr ?? n.nr}. {n.navn}</td>
+              {resultater.map((r, i) => (
+                <td key={i} className="num">
+                  {formatVaerdi(n, r[n.nr].value, enhed)}
+                  {r[n.nr].skoen && <span className="skoen-mærke" title="Beregnet på ultimotal, fordi primobalancen mangler">*</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {harSkoen && <p className="hjaelp" style={{ marginTop: 6 }}>* Skøn — beregnet på ultimotal, fordi primobalancen mangler.</p>}
+    </div>
   )
 }
