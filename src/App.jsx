@@ -132,9 +132,26 @@ export default function App () {
               Word-dokumentet indeholder de samme grafer plus et tomt kommentarfelt til hvert nøgletal.
             </p>
 
+            {OMRAADER.map(o => (
+              <section key={o.id}>
+                <div className="omraade-overskrift">
+                  <h2>{o.title}</h2>
+                  <span className="antal">nøgletal {o.nrs[0]}–{o.nrs[o.nrs.length - 1]}</span>
+                </div>
+                <div className="nogletal-gitter">
+                  {NOGLETAL.filter(n => n.omraade === o.id).map(n => (
+                    <NogletalKort
+                      key={n.nr} nogletal={n} resultater={resultater}
+                      aarNavne={aarNavne} enhed={dataset.enhed}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+
             <div className="kort udskriv-skjul">
               <label className="felt">Indekstal (nøgletal 8) beregnes på</label>
-              <p className="hjaelp" style={{ marginTop: -6 }}>Vælg én eller flere poster. Der beregnes et eget indekstal for hver post — de vises nederst, efter de børsrelaterede nøgletal.</p>
+              <p className="hjaelp" style={{ marginTop: -6 }}>Vælg én eller flere poster. Der beregnes et eget indekstal for hver post — de vises nedenfor.</p>
               <div className="indeks-poster">
                 {SECTIONS.filter(sec => sec.id !== 'ovrigt').map(sec => (
                   <div className="indeks-gruppe" key={sec.id}>
@@ -170,23 +187,6 @@ export default function App () {
                 {aarNavne.map((a, i) => <option key={i} value={i}>Basisår: {a}</option>)}
               </select>
             </div>
-
-            {OMRAADER.map(o => (
-              <section key={o.id}>
-                <div className="omraade-overskrift">
-                  <h2>{o.title}</h2>
-                  <span className="antal">nøgletal {o.nrs[0]}–{o.nrs[o.nrs.length - 1]}</span>
-                </div>
-                <div className="nogletal-gitter">
-                  {NOGLETAL.filter(n => n.omraade === o.id).map(n => (
-                    <NogletalKort
-                      key={n.nr} nogletal={n} resultater={resultater}
-                      aarNavne={aarNavne} enhed={dataset.enhed}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
 
             {ekstraNogletal.length > 0 && (
               <section>
