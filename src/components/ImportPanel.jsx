@@ -15,6 +15,13 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
 
   const fordeling = useMemo(() => (fund.length ? fordelKolonner(fund) : null), [fund])
 
+  // Et virksomhedsnavn fra et eksempel eller en tidligere, helt anden
+  // indlæsning skal ikke blive hængende, når man starter en frisk
+  // indlæsning — men er der allerede indlæst ét eller flere regnskaber i
+  // denne omgang, skal det første regnskabs navn ikke overskrives af de
+  // næste.
+  const naevnVirksomhed = nytNavn => (fund.length === 0 && nytNavn) ? nytNavn : (dataset.virksomhed || nytNavn || '')
+
   async function haandterFiler (filer) {
     setArbejder(true)
     setStatus(null)
@@ -37,7 +44,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
       const foerste = nye[0]
       setDataset(d => ({
         ...d,
-        virksomhed: d.virksomhed || foerste.virksomhed || '',
+        virksomhed: naevnVirksomhed(foerste.virksomhed),
         enhed: foerste.enhed || d.enhed
       }))
     }
@@ -54,7 +61,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
         setStatus({ type: 'advarsel', tekst: `Dokumentet blev hentet, men indeholdt ingen genkendte XBRL-poster. ${diagnostikTekst(r.diagnostik)}` })
       } else {
         setFund(f => [...f, r])
-        setDataset(d => ({ ...d, virksomhed: d.virksomhed || r.virksomhed || '', enhed: r.enhed || d.enhed }))
+        setDataset(d => ({ ...d, virksomhed: naevnVirksomhed(r.virksomhed), enhed: r.enhed || d.enhed }))
         setLink('')
       }
     } catch (e) {
@@ -110,7 +117,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     }
     if (nye.length) {
       setFund(f => [...f, ...nye])
-      setDataset(d => ({ ...d, virksomhed: d.virksomhed || nye.find(n => n.virksomhed)?.virksomhed || '' }))
+      setDataset(d => ({ ...d, virksomhed: naevnVirksomhed(nye.find(n => n.virksomhed)?.virksomhed) }))
     }
     if (advarsler.length) {
       setStatus({ type: nye.length ? 'advarsel' : 'fejl', tekst: advarsler.join(' ') })
