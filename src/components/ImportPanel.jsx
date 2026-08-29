@@ -170,7 +170,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
             <input id="cvr" type="text" inputMode="numeric" value={cvr} placeholder="12345678"
               onChange={e => setCvr(e.target.value)} />
             <div style={{ marginTop: 12 }}>
-              <button className="knap lys" type="submit" disabled={arbejder}>
+              <button className="knap primaer" type="submit" disabled={arbejder}>
                 {arbejder ? 'Søger …' : 'Find årsrapporter'}
               </button>
             </div>
