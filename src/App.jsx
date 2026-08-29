@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ImportPanel from './components/ImportPanel.jsx'
 import DataGrid from './components/DataGrid.jsx'
 import NogletalKort from './components/NogletalKort.jsx'
-import { emptyDataset, FIELDS } from './lib/model.js'
+import { emptyDataset, FIELDS, SECTIONS } from './lib/model.js'
 import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal } from './lib/nogletal.js'
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
@@ -136,23 +136,30 @@ export default function App () {
               <label className="felt">Indekstal (nøgletal 8) beregnes på</label>
               <p className="hjaelp" style={{ marginTop: -6 }}>Vælg én eller flere poster. Der beregnes et eget indekstal for hver post — de vises nederst, efter de børsrelaterede nøgletal.</p>
               <div className="indeks-poster">
-                {FIELDS.filter(f => f.section !== 'ovrigt').map(f => {
-                  const valgte = Array.isArray(dataset.indeksFelter) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
-                  const valgt = valgte.includes(f.key)
-                  return (
-                    <label key={f.key} className="indeks-post">
-                      <input
-                        type="checkbox" checked={valgt}
-                        onChange={e => setDataset(d => {
-                          const nuvaerende = Array.isArray(d.indeksFelter) ? d.indeksFelter : [d.indeksFelt || 'omsaetning']
-                          const nye = e.target.checked ? [...nuvaerende, f.key] : nuvaerende.filter(k => k !== f.key)
-                          return { ...d, indeksFelter: nye }
-                        })}
-                      />
-                      {f.label}
-                    </label>
-                  )
-                })}
+                {SECTIONS.filter(sec => sec.id !== 'ovrigt').map(sec => (
+                  <div className="indeks-gruppe" key={sec.id}>
+                    <div className="indeks-gruppe-titel">{sec.title}</div>
+                    <div className="indeks-gruppe-felter">
+                      {FIELDS.filter(f => f.section === sec.id).map(f => {
+                        const valgte = Array.isArray(dataset.indeksFelter) ? dataset.indeksFelter : [dataset.indeksFelt || 'omsaetning']
+                        const valgt = valgte.includes(f.key)
+                        return (
+                          <label key={f.key} className="indeks-post">
+                            <input
+                              type="checkbox" checked={valgt}
+                              onChange={e => setDataset(d => {
+                                const nuvaerende = Array.isArray(d.indeksFelter) ? d.indeksFelter : [d.indeksFelt || 'omsaetning']
+                                const nye = e.target.checked ? [...nuvaerende, f.key] : nuvaerende.filter(k => k !== f.key)
+                                return { ...d, indeksFelter: nye }
+                              })}
+                            />
+                            {f.label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
               <select
                 style={{ marginTop: 12 }}
