@@ -207,10 +207,6 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
                         <span key={j}>
                           {j > 0 && ' · '}
                           <a href={url} target="_blank" rel="noreferrer">XBRL{arr.length > 1 ? ` ${j + 1}` : ''}</a>
-                          {' '}
-                          <a href={`/.netlify/functions/ixbrl?url=${encodeURIComponent(url)}&debug=1`} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>
-                            (fejlsøg)
-                          </a>
                         </span>
                       ))}
                       {r.pdf && (r.xbrl || r.xbrlAlle?.length) ? ' · ' : ''}
