@@ -8,8 +8,6 @@ const PETROL = '#1f5c6e'
 const OKKER = '#9a6a16'
 const NED = '#9c3a2b'
 
-const tal = v => (v == null || !Number.isFinite(v) ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(v))
-
 export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed }) {
   const [visAar, setVisAar] = useState(resultater.length - 1)
   const [visForklaring, setVisForklaring] = useState(false)
@@ -44,19 +42,6 @@ export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed
               {aendring > 0 ? '+' : ''}{new Intl.NumberFormat('da-DK', { maximumFractionDigits: 1 }).format(aendring)} over perioden
             </div>
           )}
-        </div>
-      </div>
-
-      <div className="fraktion">
-        <div className="fraktion-omslag">
-          <div className="taeller">
-            <span className="tekst">{n.taeller}</span>
-            {harTal && <><br /><span className="tal-indsat">{tal(aktuel.num)}</span></>}
-          </div>
-          <div className="naevner">
-            <span className="tekst">{n.naevner}</span>
-            {harTal && <><br /><span className="tal-indsat">{tal(aktuel.den)}</span></>}
-          </div>
         </div>
       </div>
 
