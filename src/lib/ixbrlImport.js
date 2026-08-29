@@ -66,8 +66,15 @@ const NAVN_TIL_KOMPONENT = new Map(
   )
 )
 
+// Real browsers strip et navnerumspræfiks fra localName ved rigtig
+// XML-tolkning (fx "nonFraction" for <ix:nonFraction>), men beholder det ved
+// HTML-faldback (fx "ix:nonfraction"). Den letvægts-DOM-tolker, serverfunktionen
+// bruger til store dokumenter, splitter aldrig navnerum og giver altid
+// præfikset med — der splittes derfor altid selv, hvilket giver samme
+// resultat i begge tilfælde uanset hvilken DOM-tolker der bruges.
 function localName (el) {
-  return (el.localName || el.nodeName.split(':').pop() || '').toLowerCase()
+  const raa = el.localName || el.nodeName || ''
+  return raa.split(':').pop().toLowerCase()
 }
 
 /**
@@ -97,13 +104,13 @@ function taelTeksten (raw, { erInline = true, format = null } = {}) {
 
 function laesKontekster (doc) {
   const ud = {}
-  const noder = [...doc.getElementsByTagName('*')].filter(el => localName(el) === 'context')
+  const noder = [...doc.querySelectorAll('*')].filter(el => localName(el) === 'context')
   noder.forEach(el => {
     const id = el.getAttribute('id')
     if (!id) return
-    const harDimension = [...el.getElementsByTagName('*')].some(c => localName(c) === 'explicitmember' || localName(c) === 'typedmember')
+    const harDimension = [...el.querySelectorAll('*')].some(c => localName(c) === 'explicitmember' || localName(c) === 'typedmember')
     const find = navn => {
-      const n = [...el.getElementsByTagName('*')].find(c => localName(c) === navn)
+      const n = [...el.querySelectorAll('*')].find(c => localName(c) === navn)
       return n ? n.textContent.trim() : null
     }
     ud[id] = {
@@ -116,9 +123,16 @@ function laesKontekster (doc) {
   return ud
 }
 
-/** Læser både inline XBRL (XHTML) og en ren XBRL-instans. */
-export function parseXbrlDokument (tekst, kilde = '') {
-  const parser = new DOMParser()
+/**
+ * Læser både inline XBRL (XHTML) og en ren XBRL-instans.
+ *
+ * ParserClass er en injicerbar DOMParser-klasse (default: browserens egen),
+ * så den samme tolkning kan genbruges i en serverfunktion — fx til store
+ * dokumenter, browseren ikke selv kan hente pga. CORS — med en letvægts
+ * DOM-implementering (linkedom) i stedet.
+ */
+export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.DOMParser) {
+  const parser = new ParserClass()
   let doc = parser.parseFromString(tekst, 'application/xhtml+xml')
   if (doc.getElementsByTagName('parsererror').length) doc = parser.parseFromString(tekst, 'text/html')
 
@@ -153,7 +167,11 @@ export function parseXbrlDokument (tekst, kilde = '') {
   const diagnostik = { antalElementer: 0, antalMatchede: 0, antalUdelukketPgaDimension: 0 }
   const ikkeGenkendteNavne = new Map()
 
-  const alle = [...doc.getElementsByTagName('*')]
+  // Enhver kandidatpost — både ix:nonFraction og en ren instans' talposter —
+  // skal ifølge XBRL-specifikationen altid have et contextRef, så det
+  // indsnævrer kandidatlisten væsentligt i forhold til at scanne alle
+  // elementer i store dokumenter, uden at ændre hvilke poster der findes.
+  const alle = [...doc.querySelectorAll('[contextRef]')]
   alle.forEach(el => {
     const ln = localName(el)
     const erInline = ln === 'nonfraction'
@@ -263,14 +281,20 @@ export function diagnostikTekst (diagnostik) {
 }
 
 /**
- * Henter en iXBRL-adresse gennem serverfunktionen, fordi Virk hverken sender
- * CORS-headere eller svarer på kald uden browserlignende headere.
+ * Henter og tolker en iXBRL-adresse gennem serverfunktionen. Både hentning
+ * og selve tolkningen sker på serveren (ikke kun proxyet råt igennem), fordi
+ * Virk hverken sender CORS-headere eller svarer på kald uden
+ * browserlignende headere — og fordi store selskabers årsrapporter kan være
+ * adskillige MB store; ved kun at sende det tolkede resultat (nogle få
+ * kolonner) tilbage til browseren undgås grænserne for, hvor meget data en
+ * browserside kan hente i ét hug.
  */
 export async function importerIxbrlLink (url) {
   const svar = await fetch('/.netlify/functions/ixbrl?url=' + encodeURIComponent(url))
-  const tekst = await svar.text()
-  if (!svar.ok) throw new Error(tekst.trim() || `Kunne ikke hente dokumentet (${svar.status}).`)
-  return parseXbrlDokument(tekst, url)
+  const data = await svar.json().catch(() => null)
+  if (!svar.ok || !data) throw new Error(data?.fejl || `Kunne ikke hente dokumentet (${svar.status}).`)
+  if (data.fejl) throw new Error(data.fejl)
+  return data
 }
 
 /** Slår offentliggjorte årsrapporter op på CVR-nummer. */

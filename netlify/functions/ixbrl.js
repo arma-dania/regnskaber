@@ -1,9 +1,25 @@
-// Proxy til iXBRL- og XBRL-dokumenter.
+// Henter og tolker iXBRL- og XBRL-dokumenter på serveren.
 // Browseren må ikke hente dem direkte, fordi Virk ikke sender CORS-headere.
+//
+// Store selskabers årsrapporter (fx børsnoterede selskaber) kan være adskillige
+// MB store. Derfor sker både hentning og selve talgenkendelsen her på serveren,
+// og kun det tolkede resultat — nogle få kolonner med tal — sendes til browseren.
+// Det undgår både at skulle sende hele dokumentet til browseren (som har sine
+// egne grænser for, hvor meget en enkelt browserside kan hente) og at bruge
+// unødig tid på at transportere data, der alligevel bliver kasseret efter
+// tolkningen.
+//
+// Selve svaret sendes som en "streaming"-funktion (kroppen er en ReadableStream),
+// hvilket Netlify giver et udvidet tidsbudget på 60 sekunder i stedet for en
+// almindelig funktions ca. 10 sekunder — nødvendigt, fordi hentningen af et
+// stort dokument fra en offentlig myndigheds server kan tage længere end det.
 //
 // Virks WAF afviser kald uden browserlignende headere med 403. Derfor sendes
 // en almindelig browser-User-Agent, og ved afvisning prøves et par varianter,
 // før der gives op.
+import { DOMParser } from 'linkedom'
+import { parseXbrlDokument } from '../../src/lib/ixbrlImport.js'
+
 const TILLADTE_VAERTER = [
   'regnskaber.virk.dk',
   'datacvr.virk.dk',
@@ -25,16 +41,16 @@ export default async (request) => {
   const params = new URL(request.url).searchParams
   const url = params.get('url')
   const debug = params.get('debug') === '1'
-  if (!url) return tekstsvar('Angiv en adresse i url-parameteren.', 400)
+  if (!url) return jsonsvar({ fejl: 'Angiv en adresse i url-parameteren.' }, 400)
 
   let maal
-  try { maal = new URL(url.trim()) } catch { return tekstsvar('Adressen kan ikke læses.', 400) }
-  if (!['http:', 'https:'].includes(maal.protocol)) return tekstsvar('Kun http og https er tilladt.', 400)
+  try { maal = new URL(url.trim()) } catch { return jsonsvar({ fejl: 'Adressen kan ikke læses.' }, 400) }
+  if (!['http:', 'https:'].includes(maal.protocol)) return jsonsvar({ fejl: 'Kun http og https er tilladt.' }, 400)
 
   const frit = process.env.TILLAD_ALLE_VAERTER === 'true'
   const kendt = TILLADTE_VAERTER.some(v => maal.hostname === v || maal.hostname.endsWith('.' + v))
   if (!frit && !kendt) {
-    return tekstsvar(`Værten ${maal.hostname} er ikke på listen. Tilføj den i netlify/functions/ixbrl.js, eller sæt TILLAD_ALLE_VAERTER=true.`, 403)
+    return jsonsvar({ fejl: `Værten ${maal.hostname} er ikke på listen. Tilføj den i netlify/functions/ixbrl.js, eller sæt TILLAD_ALLE_VAERTER=true.` }, 403)
   }
 
   // datacvr.virk.dk/gateway/… er ikke en dokumentadresse, men et internt API,
@@ -42,11 +58,12 @@ export default async (request) => {
   // cookies og session-token). Det kan aldrig besvares fra en serverfunktion,
   // uanset hvilke headere der sendes, så det er meningsløst at prøve.
   if (maal.hostname.endsWith('virk.dk') && maal.pathname.includes('/gateway/')) {
-    return tekstsvar(
-      'Denne adresse er et gateway-kald (datacvr.virk.dk/gateway/…), som kun virker inde fra en ' +
-      'browsersession på Virks egen side — det kan ikke hentes gennem en serverfunktion. ' +
-      'Brug "Find årsrapporter" med CVR-nummeret i stedet; den finder de direkte dokumentadresser ' +
-      '(regnskaber.virk.dk/<cvr>/<fil>.xml), som proxyen kan hente.', 400)
+    return jsonsvar({
+      fejl: 'Denne adresse er et gateway-kald (datacvr.virk.dk/gateway/…), som kun virker inde fra en ' +
+        'browsersession på Virks egen side — det kan ikke hentes gennem en serverfunktion. ' +
+        'Brug "Find årsrapporter" med CVR-nummeret i stedet; den finder de direkte dokumentadresser ' +
+        '(regnskaber.virk.dk/<cvr>/<fil>.xml), som proxyen kan hente.'
+    }, 400)
   }
 
   // Dokumenterne på regnskaber.virk.dk udstilles over http. Nogle netværk
@@ -55,38 +72,55 @@ export default async (request) => {
   if (maal.protocol === 'https:') forsoeg.push(maal.href.replace(/^https:/, 'http:'))
   else forsoeg.push(maal.href.replace(/^http:/, 'https:'))
 
-  const log = []
-  for (const adresse of forsoeg) {
-    try {
-      const r = await fetch(adresse, { headers: BROWSER_HEADERS, redirect: 'follow' })
-      const type = r.headers.get('content-type') || ''
-      if (r.ok) {
-        const tekst = await r.text()
-        if (debug) {
-          return tekstsvar(`OK ${r.status} · ${type} · ${tekst.length} tegn\n\n${tekst.slice(0, 800)}`, 200)
-        }
-        if (/text\/html/i.test(type) && !/<ix:|xmlns:ix=/i.test(tekst.slice(0, 4000))) {
-          return tekstsvar(
-            'Adressen gav en almindelig webside uden XBRL-opmærkning. Det er sandsynligvis ' +
-            'en visningsside og ikke selve dokumentet. Find dokumentlinket, der ender på .xml eller .xhtml.', 415)
-        }
-        return new Response(tekst, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'public, max-age=3600'
+  // Fra her af sendes svarets hoved, før hentningen er færdig (det er selve
+  // pointen med streaming — det er det, der giver det udvidede tidsbudget).
+  // HTTP-statussen kan derfor ikke ændres undervejs, uanset om hentningen
+  // lykkes: fejl signaleres altid som status 200 med et {fejl: "…"}-felt
+  // (debug=1: almindelig tekst) i selve svaret i stedet.
+  const enc = new TextEncoder()
+  const stream = new ReadableStream({
+    async start (controller) {
+      const send = tekst => { controller.enqueue(enc.encode(tekst)); controller.close() }
+      const log = []
+      for (const adresse of forsoeg) {
+        try {
+          const r = await fetch(adresse, { headers: BROWSER_HEADERS, redirect: 'follow' })
+          const type = r.headers.get('content-type') || ''
+          if (r.ok) {
+            const tekst = await r.text()
+            if (debug) {
+              return send(`OK ${r.status} · ${type} · ${tekst.length} tegn\n\n${tekst.slice(0, 800)}`)
+            }
+            if (/text\/html/i.test(type) && !/<ix:|xmlns:ix=/i.test(tekst.slice(0, 4000))) {
+              return send(JSON.stringify({
+                fejl: 'Adressen gav en almindelig webside uden XBRL-opmærkning. Det er sandsynligvis ' +
+                  'en visningsside og ikke selve dokumentet. Find dokumentlinket, der ender på .xml eller .xhtml.'
+              }))
+            }
+            try {
+              const resultat = parseXbrlDokument(tekst, url, DOMParser)
+              return send(JSON.stringify(resultat))
+            } catch (e) {
+              return send(JSON.stringify({ fejl: 'Dokumentet kunne ikke tolkes: ' + e.message }))
+            }
           }
-        })
+          const uddrag = (await r.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+          log.push(`${adresse} → ${r.status} ${type} ${uddrag}`)
+        } catch (e) {
+          log.push(`${adresse} → ${e.message}`)
+        }
       }
-      const uddrag = (await r.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
-      log.push(`${adresse} → ${r.status} ${type} ${uddrag}`)
-    } catch (e) {
-      log.push(`${adresse} → ${e.message}`)
+      send(debug ? forklarFejl(log) : JSON.stringify({ fejl: forklarFejl(log) }))
     }
-  }
+  })
 
-  return tekstsvar(forklarFejl(log), 502)
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': debug ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
 }
 
 function forklarFejl (log) {
@@ -102,10 +136,10 @@ function forklarFejl (log) {
   return 'Dokumentet kunne ikke hentes.\n\nTeknisk:\n' + detaljer
 }
 
-function tekstsvar (besked, status) {
-  return new Response(besked, {
+function jsonsvar (objekt, status) {
+  return new Response(JSON.stringify(objekt), {
     status,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' }
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' }
   })
 }
 
