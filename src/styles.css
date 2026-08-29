@@ -164,7 +164,7 @@ table.data input.manuel { color: var(--okker); font-style: normal; }
 .aendring.neutral { color: var(--daempet); }
 
 .nt-graf { margin-top: 6px; }
-.nt-fod { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--daempet); padding: 6px 0 4px; border-top: 1px solid var(--linje-svag); margin-top: 8px; }
+.nt-fod { display: flex; justify-content: flex-end; align-items: center; font-size: 11px; color: var(--daempet); padding: 6px 0 4px; border-top: 1px solid var(--linje-svag); margin-top: 8px; }
 .nt-fod button { background: none; border: none; color: var(--petrol); font-size: 11px; padding: 0; text-decoration: underline; }
 .forklaring { font-size: 12.5px; color: var(--daempet); margin: 8px 0 0; }
 .skoen-mærke { color: var(--okker); }
