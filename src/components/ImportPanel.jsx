@@ -208,6 +208,14 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
                       {r.xbrl && <a href={r.xbrl} target="_blank" rel="noreferrer">XBRL</a>}
                       {r.xbrl && r.pdf ? ' · ' : ''}
                       {r.pdf && <a href={r.pdf} target="_blank" rel="noreferrer">PDF</a>}
+                      {r.xbrl && (
+                        <>
+                          {' · '}
+                          <a href={`/.netlify/functions/ixbrl?url=${encodeURIComponent(r.xbrl)}&debug=1`} target="_blank" rel="noreferrer">
+                            fejlsøg
+                          </a>
+                        </>
+                      )}
                     </td>
                     <td className="num">
                       <button className="knap lys" style={{ padding: '4px 10px', fontSize: 12 }}
