@@ -238,7 +238,7 @@ function NogletalTabel ({ nogletal, resultater, aarNavne, enhed }) {
         <tbody>
           {nogletal.map(n => (
             <tr key={n.nr}>
-              <td>{n.visNr ?? n.nr}. {n.navn}</td>
+              <td>{typeof n.nr === 'number' && `${n.visNr ?? n.nr}. `}{n.navn}</td>
               {resultater.map((r, i) => (
                 <td key={i} className="num">
                   {formatVaerdi(n, r[n.nr].value, enhed)}

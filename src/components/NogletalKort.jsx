@@ -9,7 +9,6 @@ const OKKER = '#9a6a16'
 const NED = '#9c3a2b'
 
 export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed }) {
-  const [visAar, setVisAar] = useState(resultater.length - 1)
   const [visForklaring, setVisForklaring] = useState(false)
 
   const data = resultater.map((r, i) => ({
@@ -25,7 +24,6 @@ export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed
     ? 'neutral'
     : ((aendring > 0) === (n.bedre !== 'ned') ? 'op' : 'ned')
 
-  const aktuel = resultater[visAar][n.nr]
   const harTal = gyldige.length > 0
 
   return (
@@ -82,17 +80,6 @@ export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed
       {visForklaring && <p className="forklaring">{n.forklaring}</p>}
 
       <div className="nt-fod">
-        <span>
-          Tal fra{' '}
-          <select
-            value={visAar} onChange={e => setVisAar(Number(e.target.value))}
-            style={{ width: 'auto', display: 'inline-block', padding: '1px 4px', fontSize: 11 }}
-            aria-label={`Vælg år for udregningen af ${n.navn}`}
-          >
-            {aarNavne.map((a, i) => <option key={i} value={i}>{a}</option>)}
-          </select>
-          {aktuel.skoen && <span className="skoen-mærke" title="Gennemsnittet er beregnet på ultimotal, fordi primobalancen mangler"> · skøn</span>}
-        </span>
         <button onClick={() => setVisForklaring(v => !v)}>{visForklaring ? 'Skjul forklaring' : 'Hvad viser tallet?'}</button>
       </div>
     </article>
