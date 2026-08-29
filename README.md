@@ -153,9 +153,7 @@ og de berørte nøgletal markeres som skøn.
 Under "Indlæs regnskaber" vises de fordelte tal samlet i én tabel: første kolonne er
 posternes navne, og de følgende kolonner er balancedatoerne i kronologisk rækkefølge
 (primo, derefter analyseår 1, 2 og 3) — normalt fem kolonner i alt ved tre indlæste
-regnskaber. Hvert regnskabs egne, rå kolonner ligger stadig tilgængelige nedenfor, til at
-kontrollere kilden eller placere en enkelt kolonne manuelt, hvis den automatiske fordeling
-ikke rammer.
+regnskaber.
 
 ## Klasse B-regnskaber
 
