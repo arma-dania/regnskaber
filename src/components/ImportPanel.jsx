@@ -2,7 +2,7 @@ import { useState, useRef, useMemo } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
 import { importerIxbrlLink, importerXbrlFil, soegRegnskaber, diagnostikTekst } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
-import { FIELDS, FIELD_MAP, SECTIONS } from '../lib/model.js'
+import { FIELDS, SECTIONS } from '../lib/model.js'
 
 const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
 
@@ -124,22 +124,6 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     gaaTilTrin(1)
   }
 
-  function placerEnkelt (kolonne, maal) {
-    setDataset(d => {
-      const kopi = structuredClone(d)
-      if (maal === 'primo') {
-        kopi.primo = { ...kopi.primo, ...kolonne.values }
-      } else {
-        const aar = kopi.aar[maal]
-        aar.values = { ...aar.values, ...kolonne.values }
-        aar.sammensat = { ...(aar.sammensat || {}), ...(kolonne.sammensat || {}) }
-        if (!aar.label || /^År \d$/.test(aar.label)) aar.label = kolonne.navn
-      }
-      return kopi
-    })
-    setStatus({ type: 'info', tekst: maal === 'primo' ? 'Kolonnen er lagt ind som primobalance.' : `Kolonnen er lagt i ${dataset.aar[maal].label || 'År ' + (maal + 1)}.` })
-  }
-
   return (
     <>
       <h2 className="sektion-titel">Indlæs tre årsregnskaber</h2>
@@ -253,75 +237,10 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
       {fund.length > 0 && !fordeling && (
         <div className="besked advarsel">
           Ingen af de {fund.length} indlæste dokumenter indeholdt regnskabsposter, der kunne
-          genkendes, så der kan endnu ikke vises en samlet tabel. Se forklaringen ud for hvert
-          dokument nedenfor, eller indtast tallene i trin 2.
+          genkendes, så der kan endnu ikke vises en samlet tabel. Indtast tallene i trin 2 i
+          stedet.
         </div>
       )}
-
-      {fund.length > 0 && fordeling && (
-        <p className="hjaelp" style={{ marginTop: -6 }}>
-          Tabellen ovenfor viser de fordelte tal. Her nedenfor er hvert regnskabs egne,
-          rå kolonner — til at kontrollere kilden eller placere en enkelt kolonne manuelt,
-          hvis den automatiske fordeling ikke rammer.
-        </p>
-      )}
-
-      {fund.map((f, i) => (
-        <details className="kort" key={i}>
-          <summary style={{ cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <span>
-              {f.kilde} — {f.kolonner.length} talkolonne{f.kolonner.length === 1 ? '' : 'r'}
-              {f.antalFundne != null && `, ${f.antalFundne} poster genkendt`}
-            </span>
-            <button
-              type="button" className="knap lys" style={{ padding: '2px 10px', fontSize: 12 }}
-              onClick={e => { e.preventDefault(); e.stopPropagation(); setFund(nu => nu.filter((_, idx) => idx !== i)) }}
-            >
-              Fjern
-            </button>
-          </summary>
-          {!f.kolonner.length && (
-            <p className="hjaelp">
-              {f.diagnostik ? diagnostikTekst(f.diagnostik) : 'Ingen regnskabsposter blev genkendt i dokumentet. Indtast tallene i trin 2.'}
-            </p>
-          )}
-          <div className="tabel-omslag">
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>Post</th>
-                  {f.kolonner.map((k, j) => <th key={j} className="num">{k.navn}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {alleFundne(f).map(key => (
-                  <tr key={key}>
-                    <td>{FIELD_MAP[key]?.label || key}</td>
-                    {f.kolonner.map((k, j) => <td key={j} className="num">{fmt(k.values[key])}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td />
-                  {f.kolonner.map((k, j) => (
-                    <td key={j} className="num">
-                      <select
-                        defaultValue=""
-                        onChange={e => { if (e.target.value !== '') placerEnkelt(k, e.target.value === 'primo' ? 'primo' : Number(e.target.value)) }}
-                      >
-                        <option value="">Placér i …</option>
-                        {dataset.aar.map((a, idx) => <option key={idx} value={idx}>{a.label || `År ${idx + 1}`}</option>)}
-                        <option value="primo">Primobalance</option>
-                      </select>
-                    </td>
-                  ))}
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </details>
-      ))}
 
       <div className="kort">
         <h3>Eller start med et tomt skema</h3>
@@ -410,16 +329,3 @@ function Fordelingskort ({ fordeling, anvend }) {
 
 // Lille hjælper, så tabelrækker kan grupperes uden ekstra DOM-element.
 function Fragmenter ({ children }) { return <>{children}</> }
-
-const VIGTIGE = ['omsaetning', 'bruttoresultat', 'resultatPrimaerDrift', 'aaretsResultat', 'anlaegsaktiver', 'omsaetningsaktiver', 'aktiverIAlt', 'egenkapital', 'kortfristetGaeld']
-
-// Alle genkendte poster, med de vigtigste øverst. Ingen grænse — brugeren skal
-// se regnskabstallene, som de er læst, ikke kun et udvalg.
-function alleFundne (f) {
-  const set = new Set()
-  f.kolonner.forEach(k => Object.keys(k.values).forEach(key => set.add(key)))
-  const fundne = [...set]
-  const vigtige = VIGTIGE.filter(k => set.has(k))
-  const resten = fundne.filter(k => !vigtige.includes(k))
-  return [...vigtige, ...resten]
-}
