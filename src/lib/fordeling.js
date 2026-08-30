@@ -1,3 +1,5 @@
+import { emptyYear } from './model.js'
+
 const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
 
 /**
@@ -98,17 +100,30 @@ export function fordelKolonner (kilder) {
   }
 }
 
-/** Lægger fordelingen ind i datasættet uden at røre virksomhedsnavn og enhed. */
+/**
+ * Lægger fordelingen ind i datasættet uden at røre virksomhedsnavn og enhed.
+ * Hvert års tal erstattes helt af den nye fordeling — de må ikke blandes med
+ * gamle tal fra et tidligere selskab eller eksempeldata, for så vil poster,
+ * som det nye regnskab ikke oplyser (fx omsætning), fejlagtigt beholde det
+ * gamle tal og se ud som om de kommer fra det nye regnskab. Har den nye
+ * fordeling færre år end skemaet (fx kun to regnskaber fundet), nulstilles
+ * de resterende år også — ellers ville de beholde tal fra et tidligere,
+ * urelateret selskab.
+ */
 export function anvendFordeling (dataset, fordeling) {
   const kopi = structuredClone(dataset)
-  fordeling.aar.forEach((a, i) => {
-    if (!kopi.aar[i]) return
-    kopi.aar[i].label = a.label
-    kopi.aar[i].values = { ...kopi.aar[i].values, ...a.values }
-    kopi.aar[i].sammensat = { ...(a.sammensat || {}) }
-    kopi.aar[i].manual = {}
+  kopi.aar.forEach((y, i) => {
+    const a = fordeling.aar[i]
+    if (a) {
+      y.label = a.label
+      y.values = { ...a.values }
+      y.sammensat = { ...(a.sammensat || {}) }
+      y.manual = {}
+    } else {
+      Object.assign(y, emptyYear())
+    }
   })
-  kopi.primo = { ...kopi.primo, ...fordeling.primo }
+  kopi.primo = { ...fordeling.primo }
   // Et nyt regnskab lægges ind – afkrydsningerne til indekstal er for det
   // forrige selskab og skal ikke følge med.
   kopi.indeksFelter = []
