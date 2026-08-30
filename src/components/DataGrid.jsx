@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, PERSONALE_KOMPONENTER, withDerived, validate, laegPosterSammen, visFelt } from '../lib/model.js'
 import { parseDanskTal } from '../lib/pdfImport.js'
-import { foreslaOmformning } from '../lib/omformning.js'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
 
@@ -12,7 +11,6 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
   const [dragKilde, setDragKilde] = useState(null)
   const [dragOverMaal, setDragOverMaal] = useState(null)
   const [pendingMerge, setPendingMerge] = useState(null)
-  const [forslag, setForslag] = useState(null)
   const noter = validate(dataset)
 
   const kanFlyttes = f => !f.derived
@@ -40,11 +38,8 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
   const bekraeftSammenlaegning = () => {
     if (!pendingMerge) return
     setDataset(d => laegPosterSammen(d, pendingMerge.kildeKey, pendingMerge.maalKey, pendingMerge.foreslaetNavn.trim() || postNavn(d, pendingMerge.maalKey)))
-    setForslag(f => f?.filter(fo => fo.id !== `${pendingMerge.kildeKey}->${pendingMerge.maalKey}`) || null)
     setPendingMerge(null)
   }
-
-  const koerForslag = () => setForslag(foreslaOmformning(dataset))
 
   const saet = (aarIndex, key, raa) => {
     setDataset(d => {
@@ -92,33 +87,6 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
         Omkostninger indtastes som positive tal. Poster inden for samme afsnit kan trækkes ind over
         hinanden for at flytte eller lægge dem sammen.
       </p>
-
-      <div className="kort udskriv-skjul">
-        <button className="knap lys" onClick={koerForslag}>Foreslå omformning</button>
-        <p className="hjaelp" style={{ marginTop: 8, marginBottom: forslag ? 12 : 0 }}>
-          Ser på posterne inden for samme afsnit og foreslår sammenlægninger, hvor en post
-          konsekvent er lille i forhold til naboposten. Kun forslag — intet ændres, før du
-          godkender det.
-        </p>
-        {forslag && forslag.length === 0 && (
-          <p className="hjaelp" style={{ margin: 0 }}>Ingen oplagte sammenlægninger fundet.</p>
-        )}
-        {forslag && forslag.length > 0 && (
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {forslag.map(fo => (
-              <li key={fo.id} className="besked" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                <span>{fo.begrundelse}</span>
-                <span style={{ display: 'flex', gap: 6, flex: 'none' }}>
-                  <button className="knap primaer" style={{ padding: '4px 10px', fontSize: 12 }}
-                    onClick={() => foreslaSammenlaegning(fo.kildeKey, fo.maalKey)}>Se forslag</button>
-                  <button className="knap lys" style={{ padding: '4px 10px', fontSize: 12 }}
-                    onClick={() => setForslag(f => f.filter(x => x.id !== fo.id))}>Afvis</button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
       {pendingMerge && (
         <div className="kort sammenlaegning-flydende" style={{ borderColor: 'var(--petrol)' }}>
