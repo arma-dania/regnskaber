@@ -128,7 +128,7 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
       </div>
 
       {pendingMerge && (
-        <div className="kort" style={{ borderColor: 'var(--petrol)' }}>
+        <div className="kort sammenlaegning-flydende" style={{ borderColor: 'var(--petrol)' }}>
           <h3>Læg poster sammen?</h3>
           <p className="hjaelp">
             "{postNavn(dataset, pendingMerge.kildeKey)}" lægges sammen med

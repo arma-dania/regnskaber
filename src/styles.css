@@ -96,6 +96,15 @@ main { max-width: var(--maal); margin: 0 auto; padding: 26px 20px 90px; }
 .kort h3 { font-size: 15px; margin-bottom: 4px; }
 .kort .hjaelp { color: var(--daempet); font-size: 13px; margin: 0 0 14px; }
 
+/* Godkendelse af en foreslået sammenlægning skal ses uden at rulle væk fra
+   den post, man netop har trukket — den følger derfor med i bunden af
+   skærmen, uanset hvor langt nede i det (ofte lange) skema man er. */
+.sammenlaegning-flydende {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  z-index: 40; width: min(480px, calc(100vw - 32px));
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+
 .gitter-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 820px) { .gitter-2 { grid-template-columns: 1fr; } }
 
