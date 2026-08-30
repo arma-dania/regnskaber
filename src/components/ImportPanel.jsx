@@ -1,10 +1,14 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
 import { importerIxbrlLink, importerXbrlFil, soegRegnskaber, diagnostikTekst } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
 import { FIELDS, SECTIONS } from '../lib/model.js'
 
 const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
+
+// Sentinel til at kende forskel på "endnu ikke set nogen fordeling" og en
+// reel fordeling (som kan være null, når intet er indlæst endnu).
+const IKKE_SAT = Symbol('ikke-sat')
 
 export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, setFund, cvr, setCvr, traf, setTraf }) {
   const [status, setStatus] = useState(null)
@@ -14,6 +18,23 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
   const filInput = useRef(null)
 
   const fordeling = useMemo(() => (fund.length ? fordelKolonner(fund) : null), [fund])
+
+  // Udgangspunktet i Omform skal altid være identisk med tabellen her —
+  // lægges automatisk i skemaet, så snart fordelingen ændrer sig, i stedet
+  // for at kræve et separat "anvend"-klik, der kan glemmes eller komme til
+  // at gælde en forældet fordeling. Den fordeling, der forelå ved
+  // opstart (fx genindlæst fra en tidligere session, hvor både fund og
+  // dataset gemmes i localStorage), regnes for allerede anvendt — ellers
+  // ville en almindelig genindlæsning af siden nulstille manuelle
+  // rettelser, brugeren har lavet i Omform siden sidst.
+  const sidstAnvendt = useRef(IKKE_SAT)
+  useEffect(() => {
+    if (sidstAnvendt.current === IKKE_SAT) { sidstAnvendt.current = fordeling; return }
+    if (fordeling && fordeling !== sidstAnvendt.current) {
+      sidstAnvendt.current = fordeling
+      setDataset(d => anvendFordeling(d, fordeling))
+    }
+  }, [fordeling, setDataset])
 
   // Et virksomhedsnavn fra et eksempel eller en tidligere, helt anden
   // indlæsning skal ikke blive hængende, når man starter en frisk
@@ -125,12 +146,6 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     setArbejder(false)
   }
 
-  function anvend () {
-    setDataset(d => anvendFordeling(d, fordeling))
-    setStatus({ type: 'info', tekst: 'Tallene er lagt i skemaet. Kontrollér dem på trin 2.' })
-    gaaTilTrin(1)
-  }
-
   return (
     <>
       <h2 className="sektion-titel">Indlæs tre årsregnskaber</h2>
@@ -235,7 +250,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
         </div>
       )}
 
-      {fordeling && <Fordelingskort fordeling={fordeling} anvend={anvend} />}
+      {fordeling && <Fordelingskort fordeling={fordeling} gaaTilTrin={gaaTilTrin} />}
 
       {fund.length > 0 && !fordeling && (
         <div className="besked advarsel">
@@ -254,7 +269,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
   )
 }
 
-function Fordelingskort ({ fordeling, anvend }) {
+function Fordelingskort ({ fordeling, gaaTilTrin }) {
   const { aar, primoAar, primo, advarsler } = fordeling
   const antalPrimo = Object.keys(primo || {}).length
 
@@ -266,7 +281,7 @@ function Fordelingskort ({ fordeling, anvend }) {
   return (
     <div className="kort" style={{ borderColor: 'var(--petrol)' }}>
       <h3>Sådan fordeles årene</h3>
-      <p className="hjaelp">Tjek tidslinjen og tallene, før de lægges i skemaet.</p>
+      <p className="hjaelp">Tallene lægges automatisk i skemaet, efterhånden som de indlæses. Tjek tidslinjen og tallene, og ret dem om nødvendigt i Omform.</p>
 
       <div className="tidslinje">
         {primoAar
@@ -323,8 +338,8 @@ function Fordelingskort ({ fordeling, anvend }) {
 
       {advarsler.map((a, i) => <div className="besked advarsel" key={i}>{a}</div>)}
 
-      <button className="knap primaer" onClick={anvend} style={{ marginTop: 16 }}>
-        Læg tallene i skemaet
+      <button className="knap primaer" onClick={() => gaaTilTrin(1)} style={{ marginTop: 16 }}>
+        Gå til analyseformen
       </button>
     </div>
   )
