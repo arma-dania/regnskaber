@@ -109,6 +109,17 @@ function laesKontekster (doc) {
   return ud
 }
 
+// Titlen på et iXBRL-dokument fra Erhvervsstyrelsen følger typisk mønsteret
+// "<CVR-nummer> <Virksomhedsnavn> <startdato> - <slutdato> årsrapport" —
+// kun selve navnet skal stå i virksomhedsfeltet, ikke CVR-nummer og
+// regnskabsperiode.
+function udtraekVirksomhedsnavn (raaTitel) {
+  let t = raaTitel.trim().replace(/^\d{8}\s+/, '')
+  const datoStart = t.match(/\s+\d{1,2}\.\s+\p{L}+\s+\d{4}/u)
+  if (datoStart) t = t.slice(0, datoStart.index)
+  return t.trim()
+}
+
 /**
  * Læser både inline XBRL (XHTML) og en ren XBRL-instans.
  *
@@ -183,7 +194,7 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
   })
 
   const sorteret = [...kolonner.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
-  const virksomhed = (doc.querySelector('title')?.textContent || '').trim().slice(0, 80)
+  const virksomhed = udtraekVirksomhedsnavn((doc.querySelector('title')?.textContent || '').slice(0, 200))
 
   // De ukendte navne forklarer, hvilken taksonomi eller opsætning dokumentet
   // reelt bruger — fx til at udvide navnelisterne ovenfor med den rigtige
