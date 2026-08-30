@@ -77,6 +77,23 @@ export function emptyYear (label = '') {
   return { label, values, manual: {} }
 }
 
+/**
+ * Skal en rå (ikke-beregnet) post vises? Er der importeret et regnskab,
+ * skal tabellen i Omform være identisk med tabellen i Indlæs regnskaber —
+ * posten vises kun, når den rent faktisk har et tal. Er der IKKE importeret
+ * noget (skemaet startet tomt til manuel indtastning), vises alle poster,
+ * så der er noget at taste tal ind i — MEDMINDRE posten selv er lagt sammen
+ * med en anden: den skal forblive skjult, når den er tom, uanset om noget
+ * er importeret, for den findes reelt ikke længere. Beregnede summer (fx
+ * Bruttoresultat, EBIT) vises altid — de hører til analyseformen selv.
+ */
+export function visFelt (f, dataset, harImporteret) {
+  const harTal = dataset.aar.some(y => y.values[f.key] != null) || (dataset.primo && dataset.primo[f.key] != null)
+  if (f.derived || harTal) return true
+  if (dataset.sammenlagtBort?.includes(f.key)) return false
+  return !harImporteret
+}
+
 export function emptyDataset () {
   return {
     virksomhed: '',
@@ -84,7 +101,8 @@ export function emptyDataset () {
     indeksBasisaar: 0,
     aar: [emptyYear('År 1'), emptyYear('År 2'), emptyYear('År 3')],
     primo: {},
-    posterLabels: {}
+    posterLabels: {},
+    sammenlagtBort: []
   }
 }
 
@@ -93,6 +111,11 @@ export function emptyDataset () {
  * omformningsforslag: kildens tal lægges til målets tal i hvert år, kilden
  * tømmes, og målet får det (eventuelt rettede) foreslåede navn. Ændrer intet
  * ved de afledte summer, som stadig regner ud fra de rå poster.
+ *
+ * Kilden mærkes som "sammenlagt bort": den skal forblive skjult, når den er
+ * tom, også i et skema startet helt tomt (hvor tomme poster ellers altid
+ * vises, så man kan taste i dem) — ellers ville en sammenlagt post pludselig
+ * dukke tomt op igen bagefter, blot fordi den ikke stammer fra en import.
  */
 export function laegPosterSammen (dataset, kildeKey, maalKey, nytNavn) {
   const kopi = structuredClone(dataset)
@@ -105,6 +128,7 @@ export function laegPosterSammen (dataset, kildeKey, maalKey, nytNavn) {
     y.values[kildeKey] = null
   })
   kopi.posterLabels = { ...(kopi.posterLabels || {}), [maalKey]: nytNavn }
+  kopi.sammenlagtBort = [...new Set([...(kopi.sammenlagtBort || []), kildeKey])]
   return kopi
 }
 

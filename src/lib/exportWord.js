@@ -3,7 +3,7 @@ import {
   Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, PageBreak
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { FIELDS, SECTIONS, withDerived } from './model.js'
+import { FIELDS, SECTIONS, withDerived, visFelt } from './model.js'
 import { NOGLETAL, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
 import { filnavn } from './exportExcel.js'
 import { hentAlleGrafer } from './chartImage.js'
@@ -55,7 +55,7 @@ export async function hentWord (dataset, { medGrafer = true, harImporteret = tru
   // Regnskabet i analyseform
   const analyseBoern = [new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Regnskabet i analyseform', spacing: { before: 320, after: 160 } })]
   SECTIONS.forEach(sec => {
-    const felter = FIELDS.filter(f => f.section === sec.id && (f.derived || !harImporteret || dataset.aar.some(y => y.values[f.key] != null) || dataset.primo?.[f.key] != null))
+    const felter = FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset, harImporteret))
     const raekker = [new TableRow({
       children: [celle(sec.title, { fed: true, skygge: true, bredde: 46 }), ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))]
     })]

@@ -1,26 +1,11 @@
 import { useState } from 'react'
-import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, withDerived, validate, laegPosterSammen } from '../lib/model.js'
+import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, PERSONALE_KOMPONENTER, withDerived, validate, laegPosterSammen, visFelt } from '../lib/model.js'
 import { parseDanskTal } from '../lib/pdfImport.js'
 import { foreslaOmformning } from '../lib/omformning.js'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
 
 const postNavn = (dataset, key) => dataset.posterLabels?.[key] ?? FIELD_MAP[key]?.label ?? key
-
-// Er der importeret et regnskab, skal tabellen i Omform være identisk med
-// tabellen i Indlæs regnskaber: en rå post (ikke beregnet) vises kun, når
-// den rent faktisk har et tal — fra importen eller indtastet af brugeren
-// selv — så der ikke står poster, regnskabet ikke oplyser. Beregnede
-// summer (fx Bruttoresultat, EBIT) er undtaget: de hører til analyseformen
-// selv, ikke til det indlæste regnskab, og markeres tydeligt "beregnes".
-// Er der IKKE importeret noget (skemaet startet tomt til manuel
-// indtastning), findes der intet at være identisk med, og alle poster
-// vises som normalt, så der er noget at taste tal ind i.
-const visFelt = (f, dataset, harImporteret) =>
-  f.derived ||
-  !harImporteret ||
-  dataset.aar.some(y => y.values[f.key] != null) ||
-  (dataset.primo && dataset.primo[f.key] != null)
 
 export default function DataGrid ({ dataset, setDataset, harImporteret }) {
   const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primo || {}).length > 0)
@@ -37,10 +22,18 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
     const kilde = FIELD_MAP[kildeKey]
     const maal = FIELD_MAP[maalKey]
     if (!kilde || !maal || kilde.derived || maal.derived || kilde.section !== maal.section) return
+    // Lønkomponenterne (løn, pension, …) er en kendt gruppe under den ene,
+    // rigtige post "Personaleomkostninger" — foreslå den direkte i stedet
+    // for at kæde navnet længere for hver sammenlægning (fx "... (inkl. X)
+    // (inkl. Y)"), uanset hvilken retning de trækkes i.
+    const erLoenkomponentGruppe = PERSONALE_KOMPONENTER.includes(kildeKey) &&
+      (PERSONALE_KOMPONENTER.includes(maalKey) || maalKey === 'personaleomkostninger')
     setPendingMerge({
       kildeKey,
       maalKey,
-      foreslaetNavn: `${postNavn(dataset, maalKey)} (inkl. ${postNavn(dataset, kildeKey).toLowerCase()})`
+      foreslaetNavn: erLoenkomponentGruppe
+        ? FIELD_MAP.personaleomkostninger.label
+        : `${postNavn(dataset, maalKey)} (inkl. ${postNavn(dataset, kildeKey).toLowerCase()})`
     })
   }
 
