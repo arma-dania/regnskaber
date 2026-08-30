@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, PERSONALE_KOMPONENTER, withDerived, validate, laegPosterSammen, visFelt } from '../lib/model.js'
-import { parseDanskTal } from '../lib/pdfImport.js'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
 
 const postNavn = (dataset, key) => dataset.posterLabels?.[key] ?? FIELD_MAP[key]?.label ?? key
 
-export default function DataGrid ({ dataset, setDataset, harImporteret }) {
+export default function DataGrid ({ dataset, setDataset }) {
   const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primo || {}).length > 0)
   const [dragKilde, setDragKilde] = useState(null)
   const [dragOverMaal, setDragOverMaal] = useState(null)
@@ -41,30 +40,6 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
     setPendingMerge(null)
   }
 
-  const saet = (aarIndex, key, raa) => {
-    setDataset(d => {
-      const kopi = structuredClone(d)
-      const aar = kopi.aar[aarIndex]
-      const v = raa.trim() === '' ? null : parseDanskTal(raa)
-      aar.values[key] = v
-      // Tomt felt betyder "regn den ud for mig"; et tal betyder "brug mit tal".
-      if (v == null) delete aar.manual[key]
-      else if (FIELDS.find(f => f.key === key)?.derived) aar.manual[key] = true
-      return kopi
-    })
-  }
-
-  const saetPrimo = (key, raa) => {
-    setDataset(d => {
-      const kopi = structuredClone(d)
-      kopi.primo = { ...kopi.primo }
-      const v = raa.trim() === '' ? null : parseDanskTal(raa)
-      if (v == null) delete kopi.primo[key]
-      else kopi.primo[key] = v
-      return kopi
-    })
-  }
-
   const saetAarLabel = (i, tekst) => setDataset(d => {
     const kopi = structuredClone(d)
     kopi.aar[i].label = tekst
@@ -77,15 +52,20 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
     <>
       <h2 className="sektion-titel">Regnskabet i analyseform</h2>
       <p className="sektion-intro">
-        Tallenes farve viser, hvor de kommer fra. <strong>Kursiveret gråt</strong>: beregnet ud fra
-        posterne ovenfor og opdateres automatisk. <strong>Okker</strong>: fra regnskabet eller
-        indtastet af dig — bliver aldrig regnet om, heller ikke hvis posterne ovenfor ændres (fx er
-        bruttofortjeneste i et klasse B-regnskab ikke altid omsætning minus vareforbrug). Tøm
-        feltet, hvis posten alligevel skal beregnes.
+        Her ser du de indlæste regnskaber omregnet til de faste poster, som de 28 nøgletal
+        beregnes ud fra. Tallene kan ikke rettes her — de kommer udelukkende fra det, du har
+        indlæst under "Indlæs regnskaber". Er et tal forkert, skal det rettes i selve importen.
       </p>
       <p className="sektion-intro">
-        Omkostninger indtastes som positive tal. Poster inden for samme afsnit kan trækkes ind over
-        hinanden for at flytte eller lægge dem sammen.
+        <strong>Kursiveret gråt</strong> er beregnet ud fra posterne ovenfor og opdateres
+        automatisk. <strong>Okker</strong> er en post, regnskabet selv oplyser direkte, og
+        bliver derfor aldrig regnet om — fx er bruttofortjeneste i et klasse B-regnskab ikke
+        altid omsætning minus vareforbrug.
+      </p>
+      <p className="sektion-intro">
+        Oplyser regnskabet en post i flere enkeltdele (fx løn og pension hver for sig), kan du
+        trække dem ind over hinanden for at lægge dem sammen til den rigtige, samlede post —
+        poster kan kun lægges sammen inden for samme afsnit.
       </p>
 
       {pendingMerge && (
@@ -163,7 +143,7 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
               {SECTIONS.map(sec => (
                 <Fragmenter key={sec.id}>
                   <tr className="gruppe"><td colSpan={1 + (visPrimo ? 1 : 0) + dataset.aar.length}>{sec.title}</td></tr>
-                  {FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset, harImporteret)).map(f => (
+                  {FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset)).map(f => (
                     <tr
                       key={f.key}
                       className={(f.derived ? 'sum' : '') + (dragOverMaal === f.key ? ' traek-over' : '')}
@@ -183,9 +163,9 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
                       {visPrimo && (
                         <td className="num">
                           {PRIMO_FIELDS.includes(f.key)
-                            ? <input type="text" inputMode="decimal" value={visTal(dataset.primo?.[f.key])}
-                                onChange={e => saetPrimo(f.key, e.target.value)}
-                                aria-label={`${postNavn(dataset, f.key)}, primo`} />
+                            ? <span className="tal-vaerdi" aria-label={`${postNavn(dataset, f.key)}, primo`}>
+                                {visTal(dataset.primo?.[f.key])}
+                              </span>
                             : <span style={{ color: 'var(--linje)' }}>·</span>}
                         </td>
                       )}
@@ -194,13 +174,12 @@ export default function DataGrid ({ dataset, setDataset, harImporteret }) {
                         const vaerdi = eksplicit ? y.values[f.key] : beregnede[i][f.key]
                         return (
                           <td key={i} className="num">
-                            <input
-                              type="text" inputMode="decimal"
-                              className={f.derived ? (eksplicit ? 'manuel' : 'afledt') : ''}
-                              value={visTal(vaerdi)}
-                              onChange={e => saet(i, f.key, e.target.value)}
+                            <span
+                              className={'tal-vaerdi' + (f.derived ? (eksplicit ? ' manuel' : ' afledt') : '')}
                               aria-label={`${postNavn(dataset, f.key)}, ${y.label || 'år ' + (i + 1)}`}
-                            />
+                            >
+                              {visTal(vaerdi)}
+                            </span>
                           </td>
                         )
                       })}
