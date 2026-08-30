@@ -52,7 +52,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
         const erXbrl = /\.(xml|xhtml|html?)$/i.test(f.name)
         const r = erXbrl ? await importerXbrlFil(f) : await importerPdf(f)
         if (!r.kolonner.length) {
-          const forklaring = erXbrl ? diagnostikTekst(r.diagnostik) : 'Indtast tallene i trin 2, eller prøv en iXBRL-adresse i stedet.'
+          const forklaring = erXbrl ? diagnostikTekst(r.diagnostik) : 'Prøv en iXBRL-adresse i stedet.'
           setStatus({ type: 'advarsel', tekst: `${f.name}: ingen regnskabsposter blev genkendt. ${forklaring}` })
         }
         nye.push(r)
@@ -255,16 +255,10 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
       {fund.length > 0 && !fordeling && (
         <div className="besked advarsel">
           Ingen af de {fund.length} indlæste dokumenter indeholdt regnskabsposter, der kunne
-          genkendes, så der kan endnu ikke vises en samlet tabel. Indtast tallene i trin 2 i
-          stedet.
+          genkendes, så der kan endnu ikke vises en samlet tabel. Prøv et andet dokument eller
+          en iXBRL-adresse i stedet.
         </div>
       )}
-
-      <div className="kort">
-        <h3>Eller start med et tomt skema</h3>
-        <p className="hjaelp">Alle 28 nøgletal kan også beregnes ud fra tal, du selv taster ind.</p>
-        <button className="knap lys" onClick={() => gaaTilTrin(1)}>Gå til analyseformen</button>
-      </div>
     </>
   )
 }

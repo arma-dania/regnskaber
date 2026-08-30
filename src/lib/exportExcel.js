@@ -4,7 +4,7 @@ import { NOGLETAL, OMRAADER, beregnAlle } from './nogletal.js'
 
 const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100)
 
-export function byggeArbejdsbog (dataset, harImporteret = true) {
+export function byggeArbejdsbog (dataset) {
   const wb = XLSX.utils.book_new()
   const aarNavne = dataset.aar.map((y, i) => y.label || `År ${i + 1}`)
   const resultater = beregnAlle(dataset)
@@ -14,7 +14,7 @@ export function byggeArbejdsbog (dataset, harImporteret = true) {
   analyse.push(['Post', ...aarNavne])
   SECTIONS.forEach(sec => {
     analyse.push([sec.title.toUpperCase()])
-    FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset, harImporteret)).forEach(f => {
+    FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset)).forEach(f => {
       const raekke = [dataset.posterLabels?.[f.key] ?? f.label]
       dataset.aar.forEach(y => {
         const v = withDerived(y.values, y.manual)
@@ -72,8 +72,8 @@ export function byggeArbejdsbog (dataset, harImporteret = true) {
   return wb
 }
 
-export function hentExcel (dataset, harImporteret = true) {
-  const wb = byggeArbejdsbog(dataset, harImporteret)
+export function hentExcel (dataset) {
+  const wb = byggeArbejdsbog(dataset)
   const navn = filnavn(dataset, 'xlsx')
   XLSX.writeFile(wb, navn, { compression: true })
   return navn

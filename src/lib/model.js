@@ -78,14 +78,11 @@ export function emptyYear (label = '') {
 }
 
 /**
- * Skal en rå (ikke-beregnet) post vises? Er der importeret et regnskab,
- * skal tabellen i Omform være identisk med tabellen i Indlæs regnskaber —
- * posten vises kun, når den rent faktisk har et tal. Er der IKKE importeret
- * noget (skemaet startet tomt til manuel indtastning), vises alle poster,
- * så der er noget at taste tal ind i — MEDMINDRE posten selv er lagt sammen
- * med en anden: den skal forblive skjult, når den er tom, uanset om noget
- * er importeret, for den findes reelt ikke længere. Beregnede summer (fx
- * Bruttoresultat, EBIT) vises altid — de hører til analyseformen selv.
+ * Skal en rå (ikke-beregnet) post vises i Omform? Tabellen der skal altid
+ * være identisk med tabellen under Indlæs regnskaber — posten vises kun,
+ * når den rent faktisk har et tal, enten i et af analyseårene eller (for
+ * balanceposter) i primo. Beregnede summer (fx Bruttoresultat, EBIT) vises
+ * altid — de hører til analyseformen selv, ikke til det indlæste regnskab.
  *
  * Primo tæller kun med for poster, der reelt bruger en primoværdi
  * (PRIMO_FIELDS, dvs. balancen) — ellers ville en post fra resultatopgørelsen
@@ -93,12 +90,10 @@ export function emptyYear (label = '') {
  * og aldrig ryddet) primoværdi ind for det ældste sammenligningsår, selvom
  * posten er tom og lagt sammen bort i alle de rigtige år.
  */
-export function visFelt (f, dataset, harImporteret) {
+export function visFelt (f, dataset) {
   const harPrimo = PRIMO_FIELDS.includes(f.key) && dataset.primo && dataset.primo[f.key] != null
   const harTal = dataset.aar.some(y => y.values[f.key] != null) || harPrimo
-  if (f.derived || harTal) return true
-  if (dataset.sammenlagtBort?.includes(f.key)) return false
-  return !harImporteret
+  return f.derived || harTal
 }
 
 export function emptyDataset () {

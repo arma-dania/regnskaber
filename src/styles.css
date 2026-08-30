@@ -141,8 +141,9 @@ table.data input {
 }
 table.data input:hover { border-color: var(--linje); }
 table.data input:focus { border-color: var(--petrol); background: #fff; outline: none; }
-table.data input.afledt { color: var(--daempet); font-style: italic; }
-table.data input.manuel { color: var(--okker); font-style: normal; }
+.tal-vaerdi { display: block; padding: 4px 6px; color: var(--blaek); }
+.tal-vaerdi.afledt { color: var(--daempet); font-style: italic; }
+.tal-vaerdi.manuel { color: var(--okker); font-style: normal; }
 .postnavn { display: flex; align-items: center; gap: 8px; }
 .mærkat { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--daempet); border: 1px solid var(--linje); padding: 1px 5px; border-radius: 2px; }
 

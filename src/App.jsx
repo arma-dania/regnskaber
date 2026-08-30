@@ -6,7 +6,6 @@ import { emptyDataset, FIELDS, SECTIONS } from './lib/model.js'
 import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi } from './lib/nogletal.js'
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
-import { EKSEMPEL } from './lib/eksempel.js'
 
 // v2: en række rettelser (fjernelse af automatisk sammenlægning af
 // lønposter, af at nye tal blev blandet med gamle ved indlæsning, m.m.)
@@ -71,7 +70,7 @@ export default function App () {
     }
     setTravl('word'); setKvittering(null)
     try {
-      const navn = await hentWord(dataset, { harImporteret: fund.length > 0 })
+      const navn = await hentWord(dataset)
       setKvittering(`${navn} er hentet.`)
     } catch (e) {
       setKvittering('Word-dokumentet kunne ikke dannes: ' + e.message)
@@ -82,7 +81,7 @@ export default function App () {
   function eksporterExcel () {
     setTravl('excel'); setKvittering(null)
     try {
-      const navn = hentExcel(dataset, fund.length > 0)
+      const navn = hentExcel(dataset)
       setKvittering(`${navn} er hentet.`)
     } catch (e) {
       setKvittering('Excel-filen kunne ikke dannes: ' + e.message)
@@ -107,7 +106,6 @@ export default function App () {
           <h1>Regnskabsanalyse</h1>
           <span className="undertekst">28 nøgletal · 5 analyseområder · 3 år</span>
           <div className="topbar-handlinger">
-            <button className="knap" onClick={() => { setDataset(EKSEMPEL()); setFund([]); setTraf(null) }}>Indlæs eksempel</button>
             <button className="knap" onClick={nulstil}>Tøm skema</button>
             <button className="knap" onClick={eksporterExcel} disabled={!harData || travl === 'excel'}>
               {travl === 'excel' ? 'Danner …' : 'Hent Excel'}
