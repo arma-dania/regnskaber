@@ -9,6 +9,7 @@ import { hentWord } from './lib/exportWord.js'
 import { EKSEMPEL } from './lib/eksempel.js'
 
 const NOEGLE = 'regnskabsanalyse-data-v1'
+const NOEGLE_FUND = 'regnskabsanalyse-fund-v1'
 
 const TRIN = [
   { id: 0, navn: 'Indlæs regnskaber' },
@@ -29,14 +30,28 @@ export default function App () {
   const [kvittering, setKvittering] = useState(null)
   // Ligger her (og ikke i ImportPanel) så de indlæste regnskaber, det indtastede
   // CVR-nummer og søgeresultatet ikke forsvinder, hvis man går videre til et
-  // andet trin og siden vender tilbage for at rette i dem.
-  const [fund, setFund] = useState([])
+  // andet trin og siden vender tilbage for at rette i dem. Gemmes også i
+  // localStorage: uden det ville "Sådan fordeles årene" forsvinde ved en
+  // genindlæsning af siden, selvom de anvendte tal i Omform (dataset) består —
+  // og så ville Omforms tal ikke længere kunne eftervises mod den tabel, de
+  // stammer fra.
+  const [fund, setFund] = useState(() => {
+    try {
+      const gemt = localStorage.getItem(NOEGLE_FUND)
+      if (gemt) return JSON.parse(gemt)
+    } catch { /* faldbagud til ingen indlæste regnskaber */ }
+    return []
+  })
   const [cvr, setCvr] = useState('')
   const [traf, setTraf] = useState(null)
 
   useEffect(() => {
     try { localStorage.setItem(NOEGLE, JSON.stringify(dataset)) } catch { /* fx privat browsing */ }
   }, [dataset])
+
+  useEffect(() => {
+    try { localStorage.setItem(NOEGLE_FUND, JSON.stringify(fund)) } catch { /* fx privat browsing */ }
+  }, [fund])
 
   const ekstraNogletal = useMemo(() => byggIndeksNogletal(dataset), [dataset.indeksFelter, dataset.indeksFelt])
   const resultater = useMemo(() => beregnAlle(dataset, ekstraNogletal), [dataset, ekstraNogletal])
@@ -87,7 +102,7 @@ export default function App () {
           <h1>Regnskabsanalyse</h1>
           <span className="undertekst">28 nøgletal · 5 analyseområder · 3 år</span>
           <div className="topbar-handlinger">
-            <button className="knap" onClick={() => setDataset(EKSEMPEL())}>Indlæs eksempel</button>
+            <button className="knap" onClick={() => { setDataset(EKSEMPEL()); setFund([]); setTraf(null) }}>Indlæs eksempel</button>
             <button className="knap" onClick={nulstil}>Tøm skema</button>
             <button className="knap" onClick={eksporterExcel} disabled={!harData || travl === 'excel'}>
               {travl === 'excel' ? 'Danner …' : 'Hent Excel'}
