@@ -332,7 +332,7 @@ function Fordelingskort ({ fordeling, gaaTilTrin }) {
 
       {advarsler.map((a, i) => <div className="besked advarsel" key={i}>{a}</div>)}
 
-      <button className="knap primaer" onClick={() => gaaTilTrin(1)} style={{ marginTop: 16 }}>
+      <button className="knap primaer" onClick={() => gaaTilTrin(2)} style={{ marginTop: 16 }}>
         Gå til analyseformen
       </button>
     </div>
