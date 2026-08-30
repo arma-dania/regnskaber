@@ -55,7 +55,7 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
   // Regnskabet i analyseform
   const analyseBoern = [new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Regnskabet i analyseform', spacing: { before: 320, after: 160 } })]
   SECTIONS.forEach(sec => {
-    const felter = FIELDS.filter(f => f.section === sec.id)
+    const felter = FIELDS.filter(f => f.section === sec.id && (!f.optional || dataset.aar.some(y => y.values[f.key] != null)))
     const raekker = [new TableRow({
       children: [celle(sec.title, { fed: true, skygge: true, bredde: 46 }), ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))]
     })]

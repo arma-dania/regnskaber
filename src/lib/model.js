@@ -14,6 +14,15 @@ export const FIELDS = [
   { key: 'vareforbrug', label: 'Vareforbrug / produktionsomkostninger', section: 'resultat' },
   { key: 'bruttoresultat', label: 'Bruttoresultat (bruttofortjeneste)', section: 'resultat', derived: 'omsaetning - vareforbrug' },
   { key: 'personaleomkostninger', label: 'Personaleomkostninger', section: 'resultat' },
+  // Nogle regnskaber tagger aldrig en samlet personaleomkostning, kun de
+  // enkeltposter, årsregnskabsloven kræver specifikation af (§98a). De vises
+  // her som almindelige poster, præcis som i regnskabet, og skal lægges
+  // sammen med Personaleomkostninger i Omform (træk-og-slip), hvis de skal
+  // indgå i kapacitetsomkostningerne. "optional": vises kun, når de har et tal.
+  { key: 'personaleomkLoen', label: 'Lønninger', section: 'resultat', optional: true },
+  { key: 'personaleomkPension', label: 'Pensioner', section: 'resultat', optional: true },
+  { key: 'personaleomkSocialSikring', label: 'Andre omkostninger til social sikring', section: 'resultat', optional: true },
+  { key: 'personaleomkAndet', label: 'Andre personaleomkostninger', section: 'resultat', optional: true },
   { key: 'andreEksterne', label: 'Andre eksterne kapacitetsomkostninger', section: 'resultat' },
   { key: 'afskrivninger', label: 'Af- og nedskrivninger', section: 'resultat' },
   { key: 'kapacitetsomkostninger', label: 'Kapacitetsomkostninger i alt', section: 'resultat', derived: 'personale + andre eksterne + afskrivninger' },
@@ -53,15 +62,7 @@ export const FIELDS = [
 
 export const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.key, f]))
 
-// Danske navne på de enkeltposter, en importeret post kan være lagt sammen af
-// (se KOMPONENTER i ixbrlImport.js). Bruges til at forklare sammensatte tal
-// i analyseformen, hvor de ikke kan rettes manuelt.
-export const KOMPONENT_LABELS = {
-  loen: 'Lønninger',
-  pension: 'Pensioner',
-  socialSikring: 'Andre omkostninger til social sikring',
-  andet: 'Andre personaleomkostninger'
-}
+export const PERSONALE_KOMPONENTER = ['personaleomkLoen', 'personaleomkPension', 'personaleomkSocialSikring', 'personaleomkAndet']
 
 // Hele balancen kan have en primoværdi. Det ældste årsregnskabs
 // sammenligningsår leverer den fjerde balancedato, som gennemsnitstallene
@@ -73,7 +74,7 @@ export const PRIMO_FIELDS = FIELDS
 export function emptyYear (label = '') {
   const values = {}
   FIELDS.forEach(f => { values[f.key] = null })
-  return { label, values, manual: {}, sammensat: {} }
+  return { label, values, manual: {} }
 }
 
 export function emptyDataset () {
@@ -102,10 +103,6 @@ export function laegPosterSammen (dataset, kildeKey, maalKey, nytNavn) {
       y.values[maalKey] = (kildeVaerdi || 0) + (maalVaerdi || 0)
     }
     y.values[kildeKey] = null
-    if (y.sammensat) {
-      delete y.sammensat[kildeKey]
-      delete y.sammensat[maalKey]
-    }
   })
   kopi.posterLabels = { ...(kopi.posterLabels || {}), [maalKey]: nytNavn }
   return kopi
@@ -159,6 +156,10 @@ export function validate (dataset) {
     }
     if (v.kapacitetsomkostninger != null && v.kapacitetsomkostninger < 0) {
       notes.push({ level: 'warn', year: label, text: 'Kapacitetsomkostninger er negative. Indtast omkostninger som positive tal.' })
+    }
+    const loenposter = PERSONALE_KOMPONENTER.filter(k => y.values[k] != null)
+    if (loenposter.length) {
+      notes.push({ level: 'warn', year: label, text: `Regnskabet oplyser kun personaleomkostninger i enkeltposter (${loenposter.map(k => FIELD_MAP[k].label.toLowerCase()).join(', ')}). Træk dem sammen med Personaleomkostninger i skemaet, ellers indgår de ikke i kapacitetsomkostningerne.` })
     }
   })
   return notes

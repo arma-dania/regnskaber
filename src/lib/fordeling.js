@@ -24,7 +24,6 @@ export function fordelKolonner (kilder) {
       poster.push({
         aar: String(kol.navn).trim(),
         values: kol.values,
-        sammensat: kol.sammensat || {},
         kilde: kilde.kilde,
         kildeHovedaar,
         kolIndex,
@@ -47,7 +46,7 @@ export function fordelKolonner (kilder) {
   if (!navngivne.length) {
     const sorteret = [...ukendte].sort((a, b) => a.raekkefoelge - b.raekkefoelge)
     return {
-      aar: sorteret.slice(0, 3).reverse().map((p, i) => ({ label: `År ${i + 1}`, values: p.values, kilder: [p.kilde], sammensat: p.sammensat })),
+      aar: sorteret.slice(0, 3).reverse().map((p, i) => ({ label: `År ${i + 1}`, values: p.values, kilder: [p.kilde] })),
       primo: sorteret[3]?.values || {},
       primoKilde: sorteret[3]?.kilde || null,
       advarsler: ['Der blev ikke fundet årstal i dokumenterne. Kolonnerne er stillet op i den rækkefølge, de blev læst — kontrollér årstallene på trin 2.']
@@ -63,18 +62,14 @@ export function fordelKolonner (kilder) {
   const flettet = [...perAar.entries()].map(([aar, liste]) => {
     const rangeret = [...liste].sort((a, b) => (b.kildeHovedaar - a.kildeHovedaar) || (a.raekkefoelge - b.raekkefoelge))
     const values = {}
-    const sammensat = {}
     const kilder = []
     rangeret.forEach(p => {
       if (!kilder.includes(p.kilde)) kilder.push(p.kilde)
       Object.entries(p.values).forEach(([key, v]) => {
         if (values[key] == null) values[key] = v
       })
-      Object.entries(p.sammensat || {}).forEach(([key, grupper]) => {
-        if (sammensat[key] == null) sammensat[key] = grupper
-      })
     })
-    return { aar, values, kilder, sammensat }
+    return { aar, values, kilder }
   }).sort((a, b) => Number(b.aar) - Number(a.aar))
 
   const analyseaar = flettet.slice(0, 3).reverse()
@@ -92,7 +87,7 @@ export function fordelKolonner (kilder) {
   }
 
   return {
-    aar: analyseaar.map(a => ({ label: a.aar, values: a.values, kilder: a.kilder, sammensat: a.sammensat })),
+    aar: analyseaar.map(a => ({ label: a.aar, values: a.values, kilder: a.kilder })),
     primo: primoPost?.values || {},
     primoAar: primoPost?.aar || null,
     primoKilde: primoPost?.kilder?.[0] || null,
@@ -117,7 +112,6 @@ export function anvendFordeling (dataset, fordeling) {
     if (a) {
       y.label = a.label
       y.values = { ...a.values }
-      y.sammensat = { ...(a.sammensat || {}) }
       y.manual = {}
     } else {
       Object.assign(y, emptyYear())

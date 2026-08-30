@@ -10,6 +10,15 @@ const XBRL_MAP = {
   vareforbrug: ['CostOfSales', 'RawMaterialsAndConsumablesUsed', 'ProductionCosts', 'CostOfGoodsSold'],
   bruttoresultat: ['GrossProfitLoss', 'GrossResult', 'GrossProfit'],
   personaleomkostninger: ['EmployeeBenefitsExpense', 'StaffCosts'],
+  // Findes der ingen samlet post, tagger regnskabet ofte kun de enkeltposter,
+  // årsregnskabsloven kræver specifikation af (§98a): løn, pension og andre
+  // omkostninger til social sikring, plus evt. "andre personaleomkostninger".
+  // De vises som almindelige poster, præcis som i regnskabet — brugeren
+  // lægger dem selv sammen med personaleomkostninger i Omform, hvis ønsket.
+  personaleomkLoen: ['WagesAndSalaries', 'Salaries', 'WagesSalariesAndRemunerations'],
+  personaleomkPension: ['PensionCosts', 'PensionContributions', 'PostemploymentBenefitExpense', 'DefinedContributionPlanCostRecognisedAsExpense'],
+  personaleomkSocialSikring: ['OtherSocialSecurityContributions', 'SocialSecurityContributions', 'SocialSecurityCosts'],
+  personaleomkAndet: ['OtherEmployeeBenefitsExpense', 'OtherStaffCosts', 'OtherEmployeeExpense', 'OtherPersonnelExpenses'],
   andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses', 'DistributionCosts', 'AdministrativeExpenses', 'AdministrativeExpense', 'OtherOperatingExpense'],
   afskrivninger: ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'DepreciationAmortisationExpense', 'DepreciationAndAmortisation', 'DepreciationDepletionAndAmortisationExpense'],
   resultatPrimaerDrift: ['ProfitLossFromOrdinaryOperatingActivities', 'OperatingProfitLoss', 'ProfitLossFromOperatingActivities'],
@@ -39,32 +48,9 @@ const XBRL_MAP = {
   pengestroemPrimaerDrift: ['CashFlowFromOperatingActivities', 'CashFlowsFromUsedInOperatingActivities']
 }
 
-const POSITIVE = ['vareforbrug', 'personaleomkostninger', 'andreEksterne', 'afskrivninger', 'finansielleOmkostninger', 'skat']
-
-// Nogle regnskaber tagger aldrig en samlet personaleomkostning – kun de
-// enkeltposter, årsregnskabsloven kræver specifikation af (§98a): løn,
-// pension og andre omkostninger til social sikring, plus evt. "andre
-// personaleomkostninger". Findes totalen ikke, lægges én post fra hver
-// gruppe sammen i stedet. Grupperne holdes adskilt, så to navne for det
-// samme (fx WagesAndSalaries og Salaries) ikke tælles dobbelt.
-const KOMPONENTER = {
-  personaleomkostninger: {
-    loen: ['WagesAndSalaries', 'Salaries', 'WagesSalariesAndRemunerations'],
-    pension: ['PensionCosts', 'PensionContributions', 'PostemploymentBenefitExpense', 'DefinedContributionPlanCostRecognisedAsExpense'],
-    socialSikring: ['OtherSocialSecurityContributions', 'SocialSecurityContributions', 'SocialSecurityCosts'],
-    andet: ['OtherEmployeeBenefitsExpense', 'OtherStaffCosts', 'OtherEmployeeExpense', 'OtherPersonnelExpenses']
-  }
-}
+const POSITIVE = ['vareforbrug', 'personaleomkostninger', 'personaleomkLoen', 'personaleomkPension', 'personaleomkSocialSikring', 'personaleomkAndet', 'andreEksterne', 'afskrivninger', 'finansielleOmkostninger', 'skat']
 
 const NAVN_TIL_KEY = new Map(Object.entries(XBRL_MAP).flatMap(([key, navne]) => navne.map((n, i) => [n.toLowerCase(), { key, prioritet: i }])))
-
-const NAVN_TIL_KOMPONENT = new Map(
-  Object.entries(KOMPONENTER).flatMap(([key, grupper]) =>
-    Object.entries(grupper).flatMap(([gruppe, navne]) =>
-      navne.map((n, i) => [n.toLowerCase(), { key, gruppe, prioritet: i }])
-    )
-  )
-)
 
 // Real browsers strip et navnerumspræfiks fra localName ved rigtig
 // XML-tolkning (fx "nonFraction" for <ix:nonFraction>), men beholder det ved
@@ -147,19 +133,6 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     k.prioriteter[key] = prioritet
   }
 
-  const registrerKomponent = (dato, key, gruppe, vaerdi, prioritet) => {
-    if (!dato) return
-    if (!kolonner.has(dato)) kolonner.set(dato, { values: {}, prioriteter: {} })
-    const k = kolonner.get(dato)
-    k.komponenter = k.komponenter || {}
-    k.komponentPrioriteter = k.komponentPrioriteter || {}
-    const grupper = (k.komponenter[key] = k.komponenter[key] || {})
-    const grupperPrioriteter = (k.komponentPrioriteter[key] = k.komponentPrioriteter[key] || {})
-    if (grupper[gruppe] != null && grupperPrioriteter[gruppe] <= prioritet) return
-    grupper[gruppe] = Math.abs(vaerdi)
-    grupperPrioriteter[gruppe] = prioritet
-  }
-
   // Diagnostik til fejlmeldinger, når der ikke findes nogen genkendte tal:
   // adskiller "intet XBRL-indhold i dokumentet" (fx forkert filtype) fra
   // "XBRL fundet, men ingen kendte navne" (fx anden taksonomi) fra "kendte
@@ -186,8 +159,7 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     diagnostik.antalElementer++
 
     const traef = NAVN_TIL_KEY.get(konceptNavn.toLowerCase())
-    const komponentTraef = traef ? null : NAVN_TIL_KOMPONENT.get(konceptNavn.toLowerCase())
-    if (!traef && !komponentTraef) {
+    if (!traef) {
       ikkeGenkendteNavne.set(konceptNavn, (ikkeGenkendteNavne.get(konceptNavn) || 0) + 1)
       return
     }
@@ -207,23 +179,7 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     if ((el.getAttribute('sign') || '') === '-') raa = -raa
 
     const dato = ctx.slut || ctx.instant
-    if (traef) registrer(dato, traef.key, raa, traef.prioritet)
-    else registrerKomponent(dato, komponentTraef.key, komponentTraef.gruppe, raa, komponentTraef.prioritet)
-  })
-
-  // Findes der ingen samlet post (fx personaleomkostninger), men mindst én
-  // delkomponent (løn, pension, …), bruges summen af delkomponenterne, og
-  // sammensætningen gemmes så den kan forklares i analyseformen.
-  kolonner.forEach(k => {
-    Object.keys(KOMPONENTER).forEach(key => {
-      if (k.values[key] != null) return
-      const grupper = k.komponenter?.[key] || {}
-      const vaerdier = Object.values(grupper)
-      if (!vaerdier.length) return
-      k.values[key] = vaerdier.reduce((sum, v) => sum + v, 0)
-      k.sammensat = k.sammensat || {}
-      k.sammensat[key] = { ...grupper }
-    })
+    registrer(dato, traef.key, raa, traef.prioritet)
   })
 
   const sorteret = [...kolonner.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
@@ -251,7 +207,7 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     kolonner: sorteret
       .filter(([, k]) => Object.keys(k.values).length > 0)
       .slice(0, 4)
-      .map(([dato, k]) => ({ navn: dato.slice(0, 4), values: k.values, sammensat: k.sammensat || {} }))
+      .map(([dato, k]) => ({ navn: dato.slice(0, 4), values: k.values }))
   }
 }
 

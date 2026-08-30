@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, KOMPONENT_LABELS, withDerived, validate, laegPosterSammen } from '../lib/model.js'
+import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, withDerived, validate, laegPosterSammen } from '../lib/model.js'
 import { parseDanskTal } from '../lib/pdfImport.js'
 import { foreslaOmformning } from '../lib/omformning.js'
 
@@ -7,9 +7,10 @@ const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('
 
 const postNavn = (dataset, key) => dataset.posterLabels?.[key] ?? FIELD_MAP[key]?.label ?? key
 
-const sammensatForklaring = grupper => 'Lagt sammen af regnskabets egne poster: ' +
-  Object.entries(grupper).map(([g, v]) => `${KOMPONENT_LABELS[g] || g} ${visTal(v)}`).join(', ') +
-  '. Kan ikke rettes her — ret i så fald enkeltposterne i selve regnskabet.'
+// Optional-poster (fx enkeltvise lønkomponenter) vises kun, når de rent
+// faktisk har et tal i mindst ét år — ellers ville hver optional post stå
+// som en tom, forvirrende linje i alle regnskaber, uanset om den er relevant.
+const visFelt = (f, dataset) => !f.optional || dataset.aar.some(y => y.values[f.key] != null)
 
 export default function DataGrid ({ dataset, setDataset }) {
   const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primo || {}).length > 0)
@@ -82,9 +83,7 @@ export default function DataGrid ({ dataset, setDataset }) {
         posterne ovenfor og opdateres automatisk. <strong>Okker</strong>: fra regnskabet eller
         indtastet af dig — bliver aldrig regnet om, heller ikke hvis posterne ovenfor ændres (fx er
         bruttofortjeneste i et klasse B-regnskab ikke altid omsætning minus vareforbrug). Tøm
-        feltet, hvis posten alligevel skal beregnes. <strong>Σ</strong>: lagt sammen af flere poster
-        fra regnskabet under indlæsningen og kan ikke rettes her — hold musen over tallet for at se
-        hvilke poster.
+        feltet, hvis posten alligevel skal beregnes.
       </p>
       <p className="sektion-intro">
         Omkostninger indtastes som positive tal. Poster inden for samme afsnit kan trækkes ind over
@@ -193,7 +192,7 @@ export default function DataGrid ({ dataset, setDataset }) {
               {SECTIONS.map(sec => (
                 <Fragmenter key={sec.id}>
                   <tr className="gruppe"><td colSpan={1 + (visPrimo ? 1 : 0) + dataset.aar.length}>{sec.title}</td></tr>
-                  {FIELDS.filter(f => f.section === sec.id).map(f => (
+                  {FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset)).map(f => (
                     <tr
                       key={f.key}
                       className={(f.derived ? 'sum' : '') + (dragOverMaal === f.key ? ' traek-over' : '')}
@@ -222,20 +221,6 @@ export default function DataGrid ({ dataset, setDataset }) {
                       {dataset.aar.map((y, i) => {
                         const eksplicit = y.values[f.key] != null
                         const vaerdi = eksplicit ? y.values[f.key] : beregnede[i][f.key]
-                        const sammensat = y.sammensat?.[f.key]
-                        if (sammensat) {
-                          return (
-                            <td key={i} className="num">
-                              <span
-                                className="sammensat-vaerdi" tabIndex={0}
-                                title={sammensatForklaring(sammensat)}
-                                aria-label={`${postNavn(dataset, f.key)}, ${y.label || 'år ' + (i + 1)}: ${visTal(vaerdi)}. ${sammensatForklaring(sammensat)}`}
-                              >
-                                Σ {visTal(vaerdi)}
-                              </span>
-                            </td>
-                          )
-                        }
                         return (
                           <td key={i} className="num">
                             <input

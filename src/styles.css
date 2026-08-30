@@ -136,10 +136,6 @@ table.data input.afledt { color: var(--daempet); font-style: italic; }
 table.data input.manuel { color: var(--okker); font-style: normal; }
 .postnavn { display: flex; align-items: center; gap: 8px; }
 .mærkat { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--daempet); border: 1px solid var(--linje); padding: 1px 5px; border-radius: 2px; }
-.sammensat-vaerdi {
-  display: block; padding: 4px 6px; text-align: right; cursor: help;
-  border-bottom: 1px dotted var(--okker); color: var(--okker);
-}
 
 /* --- Nøgletalskort --- */
 .omraade-overskrift {
