@@ -8,8 +8,13 @@ import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
 import { EKSEMPEL } from './lib/eksempel.js'
 
-const NOEGLE = 'regnskabsanalyse-data-v1'
-const NOEGLE_FUND = 'regnskabsanalyse-fund-v1'
+// v2: en række rettelser (fjernelse af automatisk sammenlægning af
+// lønposter, af at nye tal blev blandet med gamle ved indlæsning, m.m.)
+// kan have efterladt forkerte tal i ældre gemte data. Ved at skifte nøgle
+// ignoreres alt gemt under v1 automatisk, så alle starter med et rent,
+// korrekt udgangspunkt i stedet for at bære en tidligere fejl videre.
+const NOEGLE = 'regnskabsanalyse-data-v2'
+const NOEGLE_FUND = 'regnskabsanalyse-fund-v2'
 
 const TRIN = [
   { id: 0, navn: 'Indlæs regnskaber' },
