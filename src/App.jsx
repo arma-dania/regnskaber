@@ -71,7 +71,7 @@ export default function App () {
     }
     setTravl('word'); setKvittering(null)
     try {
-      const navn = await hentWord(dataset)
+      const navn = await hentWord(dataset, { harImporteret: fund.length > 0 })
       setKvittering(`${navn} er hentet.`)
     } catch (e) {
       setKvittering('Word-dokumentet kunne ikke dannes: ' + e.message)
@@ -82,7 +82,7 @@ export default function App () {
   function eksporterExcel () {
     setTravl('excel'); setKvittering(null)
     try {
-      const navn = hentExcel(dataset)
+      const navn = hentExcel(dataset, fund.length > 0)
       setKvittering(`${navn} er hentet.`)
     } catch (e) {
       setKvittering('Excel-filen kunne ikke dannes: ' + e.message)
@@ -140,7 +140,7 @@ export default function App () {
         )}
         {trin === 1 && (
           <>
-            <DataGrid dataset={dataset} setDataset={setDataset} />
+            <DataGrid dataset={dataset} setDataset={setDataset} harImporteret={fund.length > 0} />
             <button className="knap lys" onClick={() => setTrin(2)}>Se nøgletallene</button>
           </>
         )}
