@@ -172,28 +172,51 @@ export function withDerived (values, manual = {}) {
   return v
 }
 
+// Slår en liste af årstal ("2023", "2024", "2025") sammen til "2023-2025",
+// eller "2023 og 2024" / "2023, 2024 og 2025", når de ikke er årstal eller
+// ikke er fortløbende — så samme besked for flere år ikke gentages ordret.
+function formatAarListe (labels) {
+  if (labels.length === 1) return labels[0]
+  const erAarstal = labels.every(l => /^\d{4}$/.test(l))
+  if (erAarstal) {
+    const tal = labels.map(Number)
+    const fortloebende = tal.every((t, i) => i === 0 || t === tal[i - 1] + 1)
+    if (fortloebende) return `${tal[0]}-${tal[tal.length - 1]}`
+  }
+  return labels.slice(0, -1).join(', ') + ' og ' + labels[labels.length - 1]
+}
+
 // Kontroller, der fanger de typiske fejl efter en automatisk indlæsning.
+// Samme besked for flere år (fx samme post mangler hvert år) slås sammen
+// til én, i stedet for at gentages ordret for hvert enkelt år.
 export function validate (dataset) {
-  const notes = []
+  const raa = []
   dataset.aar.forEach((y, i) => {
     const v = withDerived(y.values, y.manual)
     const label = y.label || `År ${i + 1}`
     const near = (a, b) => Math.abs(a - b) <= Math.max(1, Math.abs(a) * 0.005)
     if (v.aktiverIAlt != null && v.passiverIAlt != null && !near(v.aktiverIAlt, v.passiverIAlt)) {
-      notes.push({ level: 'error', year: label, text: `Balancen stemmer ikke: aktiver ${fmt(v.aktiverIAlt)} mod passiver ${fmt(v.passiverIAlt)}.` })
+      raa.push({ level: 'error', year: label, text: `Balancen stemmer ikke: aktiver ${fmt(v.aktiverIAlt)} mod passiver ${fmt(v.passiverIAlt)}.` })
     }
     if (v.omsaetning == null && v.bruttoresultat != null) {
-      notes.push({ level: 'warn', year: label, text: 'Nettoomsætning mangler. Regnskaber i klasse B viser ofte kun bruttofortjeneste – uden omsætning kan nøgletal 2, 3, 7, 11-19 ikke beregnes.' })
+      raa.push({ level: 'warn', year: label, text: 'Nettoomsætning mangler. Regnskaber i klasse B viser ofte kun bruttofortjeneste – uden omsætning kan nøgletal 2, 3, 7, 11-19 ikke beregnes.' })
     }
     if (v.kapacitetsomkostninger != null && v.kapacitetsomkostninger < 0) {
-      notes.push({ level: 'warn', year: label, text: 'Kapacitetsomkostninger er negative. Indtast omkostninger som positive tal.' })
+      raa.push({ level: 'warn', year: label, text: 'Kapacitetsomkostninger er negative. Indtast omkostninger som positive tal.' })
     }
     const loenposter = PERSONALE_KOMPONENTER.filter(k => y.values[k] != null)
     if (loenposter.length) {
-      notes.push({ level: 'warn', year: label, text: `Regnskabet oplyser kun personaleomkostninger i enkeltposter (${loenposter.map(k => FIELD_MAP[k].label.toLowerCase()).join(', ')}). Træk dem sammen med Personaleomkostninger i skemaet, ellers indgår de ikke i kapacitetsomkostningerne.` })
+      raa.push({ level: 'warn', year: label, text: `Regnskabet oplyser kun personaleomkostninger i enkeltposter (${loenposter.map(k => FIELD_MAP[k].label.toLowerCase()).join(', ')}). Træk dem sammen med Personaleomkostninger i skemaet, ellers indgår de ikke i kapacitetsomkostningerne.` })
     }
   })
-  return notes
+
+  const grupper = new Map()
+  raa.forEach(n => {
+    const key = n.level + '|' + n.text
+    if (!grupper.has(key)) grupper.set(key, { level: n.level, text: n.text, years: [] })
+    grupper.get(key).years.push(n.year)
+  })
+  return [...grupper.values()].map(g => ({ level: g.level, year: formatAarListe(g.years), text: g.text }))
 }
 
 function fmt (n) {
