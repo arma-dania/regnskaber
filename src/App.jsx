@@ -16,9 +16,10 @@ const NOEGLE = 'regnskabsanalyse-data-v2'
 const NOEGLE_FUND = 'regnskabsanalyse-fund-v2'
 
 const TRIN = [
-  { id: 0, navn: 'Indlæs regnskaber' },
-  { id: 1, navn: 'Analyseform' },
-  { id: 2, navn: 'Nøgletal og grafer' }
+  { id: 0, navn: 'Velkommen' },
+  { id: 1, navn: 'Indlæs regnskaber' },
+  { id: 2, navn: 'Analyseform' },
+  { id: 3, navn: 'Nøgletal og grafer' }
 ]
 
 export default function App () {
@@ -63,8 +64,8 @@ export default function App () {
   const harData = dataset.aar.some(y => FIELDS.some(f => y.values[f.key] != null))
 
   async function eksporterWord () {
-    if (trin !== 2) {
-      setTrin(2)
+    if (trin !== 3) {
+      setTrin(3)
       setKvittering('Graferne skal være tegnet, før de kan lægges i Word. Tryk igen om et øjeblik.')
       return
     }
@@ -95,7 +96,7 @@ export default function App () {
     setFund([])
     setCvr('')
     setTraf(null)
-    setTrin(0)
+    setTrin(1)
     setKvittering('Skemaet er tømt.')
   }
 
@@ -121,7 +122,7 @@ export default function App () {
               key={t.id} className="trin-knap" aria-current={trin === t.id}
               onClick={() => setTrin(t.id)}
             >
-              <span className="nummer">{t.id + 1}</span>{t.navn}
+              <span className="nummer">{t.id}</span>{t.navn}
             </button>
           ))}
         </nav>
@@ -130,19 +131,21 @@ export default function App () {
       <main>
         {kvittering && <div className="besked">{kvittering}</div>}
 
-        {trin === 0 && (
+        {trin === 0 && <Velkomstside gaaTilTrin={setTrin} />}
+
+        {trin === 1 && (
           <ImportPanel
             dataset={dataset} setDataset={setDataset} gaaTilTrin={setTrin}
             fund={fund} setFund={setFund} cvr={cvr} setCvr={setCvr} traf={traf} setTraf={setTraf}
           />
         )}
-        {trin === 1 && (
+        {trin === 2 && (
           <>
             <DataGrid dataset={dataset} setDataset={setDataset} harImporteret={fund.length > 0} />
-            <button className="knap lys" onClick={() => setTrin(2)}>Se nøgletallene</button>
+            <button className="knap lys" onClick={() => setTrin(3)}>Se nøgletallene</button>
           </>
         )}
-        {trin === 2 && (
+        {trin === 3 && (
           <>
             <h2 className="sektion-titel">{dataset.virksomhed || 'Nøgletal'}</h2>
             <p className="sektion-intro">
@@ -236,6 +239,53 @@ export default function App () {
           </>
         )}
       </main>
+    </>
+  )
+}
+
+const VELKOMST_TRIN = [
+  {
+    navn: 'Indlæs regnskaber',
+    tekst: 'Hent tre års årsregnskaber som PDF, eller slå virksomheden op på CVR-nummer og lad appen finde og hente dem selv.'
+  },
+  {
+    navn: 'Analyseform',
+    tekst: 'Se de indlæste tal omregnet til et fast skema. Har regnskabet delt en post op (fx løn og pension hver for sig), trækker du dem sammen til den rigtige, samlede post.'
+  },
+  {
+    navn: 'Nøgletal og grafer',
+    tekst: 'Se alle 28 nøgletal, fordelt på 5 analyseområder, med grafer for udviklingen hen over de tre år.'
+  }
+]
+
+function Velkomstside ({ gaaTilTrin }) {
+  return (
+    <>
+      <h2 className="sektion-titel">Velkommen</h2>
+      <p className="sektion-intro" style={{ maxWidth: '70ch' }}>
+        Regnskabsanalyse omformer tre års offentliggjorte årsregnskaber til ét overskueligt
+        skema og beregner automatisk 28 nøgletal fordelt på 5 analyseområder. Du skal hverken
+        taste tal ind eller regne selv — det klarer appen. Din opgave er at bruge nøgletallene
+        til selv at skrive en egentlig analyse af virksomhedens økonomi.
+      </p>
+
+      <div className="velkomst-trin">
+        {VELKOMST_TRIN.map((t, i) => (
+          <div className="velkomst-trin-kort" key={t.navn}>
+            <span className="nummer-stor">{i + 1}</span>
+            <h3>{t.navn}</h3>
+            <p>{t.tekst}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="sektion-intro" style={{ maxWidth: '70ch' }}>
+        Når nøgletallene er beregnet, henter du dem som Excel- eller Word-fil med knapperne
+        øverst — Word-filen har desuden et tomt kommentarfelt til hvert nøgletal, klar til din
+        egen vurdering. Appen regner; den konkluderer ikke.
+      </p>
+
+      <button className="knap primaer" onClick={() => gaaTilTrin(1)}>Kom i gang</button>
     </>
   )
 }

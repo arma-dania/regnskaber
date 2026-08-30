@@ -96,6 +96,20 @@ main { max-width: var(--maal); margin: 0 auto; padding: 26px 20px 90px; }
 .kort h3 { font-size: 15px; margin-bottom: 4px; }
 .kort .hjaelp { color: var(--daempet); font-size: 13px; margin: 0 0 14px; }
 
+.velkomst-trin { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 8px 0 24px; }
+@media (max-width: 720px) { .velkomst-trin { grid-template-columns: 1fr; } }
+.velkomst-trin-kort {
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--radius); padding: 18px;
+}
+.velkomst-trin-kort .nummer-stor {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--okker); color: #fff; font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px; font-weight: 600; margin-bottom: 10px;
+}
+.velkomst-trin-kort h3 { font-size: 16px; margin-bottom: 6px; }
+.velkomst-trin-kort p { font-size: 13px; color: var(--daempet); margin: 0; }
+
 /* Godkendelse af en foreslået sammenlægning skal ses uden at rulle væk fra
    den post, man netop har trukket — den følger derfor med i bunden af
    skærmen, uanset hvor langt nede i det (ofte lange) skema man er. */
