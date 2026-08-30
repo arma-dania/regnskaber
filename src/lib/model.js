@@ -18,11 +18,11 @@ export const FIELDS = [
   // enkeltposter, årsregnskabsloven kræver specifikation af (§98a). De vises
   // her som almindelige poster, præcis som i regnskabet, og skal lægges
   // sammen med Personaleomkostninger i Omform (træk-og-slip), hvis de skal
-  // indgå i kapacitetsomkostningerne. "optional": vises kun, når de har et tal.
-  { key: 'personaleomkLoen', label: 'Lønninger', section: 'resultat', optional: true },
-  { key: 'personaleomkPension', label: 'Pensioner', section: 'resultat', optional: true },
-  { key: 'personaleomkSocialSikring', label: 'Andre omkostninger til social sikring', section: 'resultat', optional: true },
-  { key: 'personaleomkAndet', label: 'Andre personaleomkostninger', section: 'resultat', optional: true },
+  // indgå i kapacitetsomkostningerne.
+  { key: 'personaleomkLoen', label: 'Lønninger', section: 'resultat' },
+  { key: 'personaleomkPension', label: 'Pensioner', section: 'resultat' },
+  { key: 'personaleomkSocialSikring', label: 'Andre omkostninger til social sikring', section: 'resultat' },
+  { key: 'personaleomkAndet', label: 'Andre personaleomkostninger', section: 'resultat' },
   { key: 'andreEksterne', label: 'Andre eksterne kapacitetsomkostninger', section: 'resultat' },
   { key: 'afskrivninger', label: 'Af- og nedskrivninger', section: 'resultat' },
   { key: 'kapacitetsomkostninger', label: 'Kapacitetsomkostninger i alt', section: 'resultat', derived: 'personale + andre eksterne + afskrivninger' },

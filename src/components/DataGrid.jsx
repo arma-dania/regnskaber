@@ -7,12 +7,22 @@ const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('
 
 const postNavn = (dataset, key) => dataset.posterLabels?.[key] ?? FIELD_MAP[key]?.label ?? key
 
-// Optional-poster (fx enkeltvise lønkomponenter) vises kun, når de rent
-// faktisk har et tal i mindst ét år — ellers ville hver optional post stå
-// som en tom, forvirrende linje i alle regnskaber, uanset om den er relevant.
-const visFelt = (f, dataset) => !f.optional || dataset.aar.some(y => y.values[f.key] != null)
+// Er der importeret et regnskab, skal tabellen i Omform være identisk med
+// tabellen i Indlæs regnskaber: en rå post (ikke beregnet) vises kun, når
+// den rent faktisk har et tal — fra importen eller indtastet af brugeren
+// selv — så der ikke står poster, regnskabet ikke oplyser. Beregnede
+// summer (fx Bruttoresultat, EBIT) er undtaget: de hører til analyseformen
+// selv, ikke til det indlæste regnskab, og markeres tydeligt "beregnes".
+// Er der IKKE importeret noget (skemaet startet tomt til manuel
+// indtastning), findes der intet at være identisk med, og alle poster
+// vises som normalt, så der er noget at taste tal ind i.
+const visFelt = (f, dataset, harImporteret) =>
+  f.derived ||
+  !harImporteret ||
+  dataset.aar.some(y => y.values[f.key] != null) ||
+  (dataset.primo && dataset.primo[f.key] != null)
 
-export default function DataGrid ({ dataset, setDataset }) {
+export default function DataGrid ({ dataset, setDataset, harImporteret }) {
   const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primo || {}).length > 0)
   const [dragKilde, setDragKilde] = useState(null)
   const [dragOverMaal, setDragOverMaal] = useState(null)
@@ -192,7 +202,7 @@ export default function DataGrid ({ dataset, setDataset }) {
               {SECTIONS.map(sec => (
                 <Fragmenter key={sec.id}>
                   <tr className="gruppe"><td colSpan={1 + (visPrimo ? 1 : 0) + dataset.aar.length}>{sec.title}</td></tr>
-                  {FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset)).map(f => (
+                  {FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset, harImporteret)).map(f => (
                     <tr
                       key={f.key}
                       className={(f.derived ? 'sum' : '') + (dragOverMaal === f.key ? ' traek-over' : '')}

@@ -38,7 +38,7 @@ function afsnit (tekst, opts = {}) {
   return new Paragraph({ spacing: { before: 120, after: 120 }, children: [new TextRun({ text: tekst, size: 21, ...opts })] })
 }
 
-export async function hentWord (dataset, { medGrafer = true } = {}) {
+export async function hentWord (dataset, { medGrafer = true, harImporteret = true } = {}) {
   const aarNavne = dataset.aar.map((y, i) => y.label || `År ${i + 1}`)
   const resultater = beregnAlle(dataset)
   const grafer = medGrafer ? await hentAlleGrafer() : {}
@@ -55,7 +55,7 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
   // Regnskabet i analyseform
   const analyseBoern = [new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Regnskabet i analyseform', spacing: { before: 320, after: 160 } })]
   SECTIONS.forEach(sec => {
-    const felter = FIELDS.filter(f => f.section === sec.id && (!f.optional || dataset.aar.some(y => y.values[f.key] != null)))
+    const felter = FIELDS.filter(f => f.section === sec.id && (f.derived || !harImporteret || dataset.aar.some(y => y.values[f.key] != null) || dataset.primo?.[f.key] != null))
     const raekker = [new TableRow({
       children: [celle(sec.title, { fed: true, skygge: true, bredde: 46 }), ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))]
     })]
