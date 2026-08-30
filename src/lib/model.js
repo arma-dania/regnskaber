@@ -86,9 +86,16 @@ export function emptyYear (label = '') {
  * med en anden: den skal forblive skjult, når den er tom, uanset om noget
  * er importeret, for den findes reelt ikke længere. Beregnede summer (fx
  * Bruttoresultat, EBIT) vises altid — de hører til analyseformen selv.
+ *
+ * Primo tæller kun med for poster, der reelt bruger en primoværdi
+ * (PRIMO_FIELDS, dvs. balancen) — ellers ville en post fra resultatopgørelsen
+ * (fx en lønkomponent) blive ved med at stå, fordi importen lagde en (ubrugt
+ * og aldrig ryddet) primoværdi ind for det ældste sammenligningsår, selvom
+ * posten er tom og lagt sammen bort i alle de rigtige år.
  */
 export function visFelt (f, dataset, harImporteret) {
-  const harTal = dataset.aar.some(y => y.values[f.key] != null) || (dataset.primo && dataset.primo[f.key] != null)
+  const harPrimo = PRIMO_FIELDS.includes(f.key) && dataset.primo && dataset.primo[f.key] != null
+  const harTal = dataset.aar.some(y => y.values[f.key] != null) || harPrimo
   if (f.derived || harTal) return true
   if (dataset.sammenlagtBort?.includes(f.key)) return false
   return !harImporteret
