@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { REGNSKABSAFSNIT, validate, synligePoster, postNavn, postTal, laegSammen, fortrydSammenlaegning, flytPost, navneforslag, sammenlaegningsoversigt } from '../lib/model.js'
+import { REGNSKABSAFSNIT, validate, synligePoster, postNavn, postTal, laegSammen, fortrydSammenlaegning, flytPost, fortrydFlytning, navneforslag, sammenlaegningsoversigt, flytningsoversigt, visningsfaktor } from '../lib/model.js'
 
-const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
+const fmt = (n, enhed) => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: /mio/.test(enhed || '') ? 1 : 0 }).format(n))
 
 export default function DataGrid ({ dataset, setDataset }) {
   const [traekker, setTraekker] = useState(null)
@@ -17,6 +17,9 @@ export default function DataGrid ({ dataset, setDataset }) {
   ]
   const harTal = p => kolonner.some(k => postTal(dataset, p, k.tal) != null)
   const oversigt = sammenlaegningsoversigt(dataset)
+  const flytninger = flytningsoversigt(dataset)
+  const faktor = visningsfaktor(dataset)
+  const vis = v => fmt(v == null ? null : v * faktor, dataset.enhed)
   const erSum = id => poster.find(p => p.id === id)?.erSum
 
   // Øverste og nederste del af en række flytter posten dertil; midten lægger
@@ -77,8 +80,8 @@ export default function DataGrid ({ dataset, setDataset }) {
         <li><strong>Flyt:</strong> træk en post op eller ned, og slip den mellem to andre poster.</li>
       </ul>
       <p className="sektion-intro">
-        Nederst på siden kan du se, hvilke poster der er lagt sammen, og fortryde en
-        sammenlægning. Balancen omformes ikke.
+        Nederst på siden kan du se, hvilke poster der er lagt sammen eller flyttet, og fortryde
+        det. Balancen omformes ikke.
       </p>
 
       <div className="kort">
@@ -91,11 +94,12 @@ export default function DataGrid ({ dataset, setDataset }) {
           </div>
           <div>
             <label className="felt" htmlFor="enhed">Beløb angivet i</label>
-            <select id="enhed" value={dataset.enhed} onChange={e => setDataset(d => ({ ...d, enhed: e.target.value }))}>
+            <select id="enhed" value={dataset.enhed} onChange={e => setDataset(d => ({ ...d, grundenhed: d.grundenhed ?? d.enhed, enhed: e.target.value }))}>
               <option>kr.</option>
               <option>1.000 kr.</option>
               <option>mio. kr.</option>
             </select>
+            <p className="hjaelp" style={{ margin: '6px 0 0' }}>Omregner alle beløb i regnskabet, nøgletallene og eksporten.</p>
           </div>
         </div>
       </div>
@@ -167,7 +171,7 @@ export default function DataGrid ({ dataset, setDataset }) {
                           {...(kanOmformes ? traekProps(p) : {})}
                         >
                           <td>{postNavn(dataset, p)}</td>
-                          {kolonner.map((k, i) => <td key={i} className="num">{fmt(postTal(dataset, p, k.tal))}</td>)}
+                          {kolonner.map((k, i) => <td key={i} className="num">{vis(postTal(dataset, p, k.tal))}</td>)}
                         </tr>
                       ))}
                     </Fragmenter>
@@ -181,10 +185,13 @@ export default function DataGrid ({ dataset, setDataset }) {
 
       {poster.length > 0 && (
         <div className="kort">
-          <h3>Sammenlagte poster</h3>
-          {oversigt.length === 0
-            ? <p className="hjaelp" style={{ margin: 0 }}>Ingen poster er lagt sammen endnu.</p>
-            : (
+          <h3>Sammenlagte og flyttede poster</h3>
+          {oversigt.length === 0 && flytninger.length === 0 && (
+            <p className="hjaelp" style={{ margin: 0 }}>Ingen poster er lagt sammen eller flyttet endnu.</p>
+          )}
+          {oversigt.length > 0 && (
+            <>
+              <div className="oversigt-titel">Sammenlagt</div>
               <ul className="sammenlaegninger">
                 {oversigt.map(o => (
                   <li key={o.id}>
@@ -193,7 +200,21 @@ export default function DataGrid ({ dataset, setDataset }) {
                   </li>
                 ))}
               </ul>
-              )}
+            </>
+          )}
+          {flytninger.length > 0 && (
+            <>
+              <div className="oversigt-titel">Flyttet</div>
+              <ul className="sammenlaegninger">
+                {flytninger.map(f => (
+                  <li key={f.id}>
+                    <span><strong>{f.navn}</strong> {f.plads}</span>
+                    <button className="knap lys lille" onClick={() => setDataset(d => fortrydFlytning(d, f.id))}>Fortryd</button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
     </>

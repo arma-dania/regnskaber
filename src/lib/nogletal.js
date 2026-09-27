@@ -1,4 +1,4 @@
-import { withDerived, PRIMO_FIELDS, FIELD_MAP } from './model.js'
+import { withDerived, PRIMO_FIELDS, FIELD_MAP, enhedFaktor, iVisningsenhed } from './model.js'
 
 export const OMRAADER = [
   { id: 'rentabilitet', title: 'Rentabilitetsanalyse', nrs: [1, 2, 3, 4, 5, 6] },
@@ -208,14 +208,9 @@ export const NOGLETAL = [
 
 export const NOGLETAL_MAP = Object.fromEntries(NOGLETAL.map(n => [n.nr, n]))
 
-// Beløb indtastes i fx 1.000 kr., mens aktietal er i kroner og stk.
-// skaleringsfaktoren retter resultat/indre værdi pr. aktie op i hele kroner.
-function enhedFaktor (enhed) {
-  if (/mio/i.test(enhed)) return 1e6
-  if (/1\.?000|t\.?kr/i.test(enhed)) return 1000
-  return 1
-}
-
+// Nøgletallene regnes på beløb i den valgte visningsenhed (fx 1.000 kr.),
+// mens aktietal er i kroner og stk.; skaleringsfaktoren retter resultat/indre
+// værdi pr. aktie op i hele kroner.
 export function beregnAar (dataset, index, ekstraNogletal = []) {
   const c = buildContext(dataset, index)
   const faktor = enhedFaktor(dataset.enhed || '')
@@ -248,7 +243,8 @@ export function beregnAar (dataset, index, ekstraNogletal = []) {
 }
 
 export function beregnAlle (dataset, ekstraNogletal = []) {
-  return dataset.aar.map((_, i) => beregnAar(dataset, i, ekstraNogletal))
+  const vist = iVisningsenhed(dataset)
+  return vist.aar.map((_, i) => beregnAar(vist, i, ekstraNogletal))
 }
 
 function kortEnhed (e) {

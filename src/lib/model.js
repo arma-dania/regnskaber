@@ -89,8 +89,26 @@ export function emptyDataset () {
     // Den studerendes omformning af resultatopgørelsen: postrækkefølgen og
     // sammenlægningerne ({ [id på posten, der blev trukket ind på]: { navn, dele: [id, …] } }).
     raekkefoelge: [],
-    sammenlaegninger: {}
+    sammenlaegninger: {},
+    flyttede: []
   }
+}
+
+// Tallene gemmes i regnskabets egen enhed (grundenhed, fx kr. fra XBRL) og
+// omregnes kun, når de vises, til den enhed, der er valgt under "Beløb angivet i".
+export function enhedFaktor (enhed = '') {
+  if (/mio/i.test(enhed)) return 1e6
+  if (/1\.?000|t\.?kr/i.test(enhed)) return 1000
+  return 1
+}
+export const visningsfaktor = dataset => enhedFaktor(dataset.grundenhed ?? dataset.enhed) / enhedFaktor(dataset.enhed)
+
+// Beløbsposter (ikke antal aktier og børskurs) omregnet til visningsenheden.
+export function iVisningsenhed (dataset) {
+  const f = visningsfaktor(dataset)
+  if (f === 1) return dataset
+  const omregn = values => Object.fromEntries(Object.entries(values || {}).map(([k, v]) => [k, v != null && !FIELD_MAP[k]?.unit ? v * f : v]))
+  return { ...dataset, aar: dataset.aar.map(y => ({ ...y, values: omregn(y.values) })), primo: omregn(dataset.primo) }
 }
 
 // Hvilken post i analyseformen et regnskabsbegreb svarer til. Bruges kun i
@@ -201,7 +219,12 @@ export function laegSammen (dataset, kildeId, maalId, navn) {
   const dele = [...(sam[maalId]?.dele || []), kildeId, ...(sam[kildeId]?.dele || [])]
   delete sam[kildeId]
   sam[maalId] = { navn, dele }
-  return beregnAnalyse({ ...dataset, sammenlaegninger: sam, raekkefoelge: dataset.raekkefoelge.filter(id => id !== kildeId) })
+  return beregnAnalyse({
+    ...dataset,
+    sammenlaegninger: sam,
+    raekkefoelge: dataset.raekkefoelge.filter(id => id !== kildeId),
+    flyttede: (dataset.flyttede || []).filter(id => id !== kildeId)
+  })
 }
 
 /** Skiller en sammenlagt post ad igen; delene sættes ind lige efter den. */
@@ -219,7 +242,18 @@ export function flytPost (dataset, id, naboId, efter) {
   const raekkefoelge = dataset.raekkefoelge.filter(x => x !== id)
   const i = raekkefoelge.indexOf(naboId)
   raekkefoelge.splice(efter ? i + 1 : i, 0, id)
-  return { ...dataset, raekkefoelge }
+  if (raekkefoelge.join() === dataset.raekkefoelge.join()) return dataset
+  return { ...dataset, raekkefoelge, flyttede: [...new Set([...(dataset.flyttede || []), id])] }
+}
+
+/** Sætter en flyttet post tilbage på sin plads i regnskabets egen rækkefølge. */
+export function fortrydFlytning (dataset, id) {
+  const orden = new Map((dataset.poster || []).map((p, i) => [p.id, i]))
+  const flyttede = (dataset.flyttede || []).filter(x => x !== id)
+  const raekkefoelge = dataset.raekkefoelge.filter(x => x !== id)
+  const i = raekkefoelge.findIndex(x => !flyttede.includes(x) && orden.get(x) > orden.get(id))
+  raekkefoelge.splice(i < 0 ? raekkefoelge.length : i, 0, id)
+  return { ...dataset, raekkefoelge, flyttede }
 }
 
 const lilleBegyndelse = t => (/^\p{Lu}\p{Ll}/u.test(t) ? t[0].toLocaleLowerCase('da') + t.slice(1) : t)
@@ -239,18 +273,35 @@ export function navneforslag (dataset, kildeId, maalId) {
   return [...new Set(forslag)]
 }
 
-/** Det omformede regnskab til eksport: afsnit med de poster, der vises. */
+/** Det omformede regnskab til eksport: afsnit med de poster, der vises, i visningsenheden. */
 export function omformetRegnskab (dataset) {
+  const f = visningsfaktor(dataset)
   return REGNSKABSAFSNIT
     .map(a => ({
       ...a,
       raekker: synligePoster(dataset, a.id).map(p => ({
         navn: postNavn(dataset, p),
         erSum: p.erSum,
-        tal: dataset.aar.map(y => postTal(dataset, p, y.poster))
+        tal: dataset.aar.map(y => { const v = postTal(dataset, p, y.poster); return v == null ? null : v * f })
       })).filter(r => r.tal.some(v => v != null))
     }))
     .filter(a => a.raekker.length)
+}
+
+/** De flyttede poster, og hvor de står nu. */
+export function flytningsoversigt (dataset) {
+  const map = postMap(dataset)
+  const r = dataset.raekkefoelge || []
+  return (dataset.flyttede || [])
+    .filter(id => r.includes(id))
+    .map(id => {
+      const foer = map.get(r[r.indexOf(id) - 1])
+      return {
+        id,
+        navn: postNavn(dataset, map.get(id)),
+        plads: foer ? `står nu efter ${postNavn(dataset, foer)}` : 'står nu øverst i resultatopgørelsen'
+      }
+    })
 }
 
 /** Oversigten over sammenlægninger: det nye navn og de poster, det består af. */

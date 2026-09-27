@@ -280,7 +280,7 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     if ((el.getAttribute('sign') || '') === '-') v = -v
     const dato = ctx.slut || ctx.instant
     if (!dato) return null
-    return { begreb, dato, vaerdi: v }
+    return { begreb, dato, vaerdi: v, scale: Number.isFinite(scale) ? scale : 0 }
   }
 
   if (erInlineDok) {
@@ -353,6 +353,13 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     if (kol.values[id] == null) kol.values[id] = f.vaerdi
   })
 
+  // Den enhed, regnskabet selv er stillet op i (fx t.kr.), ses af tallenes
+  // skalering i iXBRL; den bruges som udgangspunkt for visningen.
+  const skalaer = new Map()
+  fund.forEach(f => skalaer.set(f.scale, (skalaer.get(f.scale) || 0) + 1))
+  const skala = [...skalaer.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+  const visEnhed = skala === 6 ? 'mio. kr.' : skala === 3 ? '1.000 kr.' : 'kr.'
+
   const titel = (doc.querySelector('title')?.textContent || '').slice(0, 200)
   const virksomhed = findStamdata(doc, 'nameofreportingentity') || navnFraTitel(titel)
   const cvrCifre = (findStamdata(doc, 'identificationnumbercvrofreportingentity') || '').replace(/\D/g, '')
@@ -369,6 +376,7 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     virksomhed,
     cvr,
     enhed: 'kr.',
+    visEnhed,
     diagnostik,
     poster,
     kolonner: kolonner.filter(k => Object.keys(k.values).length > 0)

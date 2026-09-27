@@ -149,7 +149,7 @@ export default function App () {
           <>
             <h2 className="sektion-titel">{dataset.virksomhed || 'Nøgletal'}</h2>
             <p className="sektion-intro">
-              Beløb i {dataset.enhed}. Grafen under hvert nøgletal viser {aarNavne.join(', ')}.
+              Beløb i {dataset.enhed.replace(/\.$/, '')}. Grafen under hvert nøgletal viser {aarNavne.join(', ')}.
               Word-dokumentet indeholder de samme grafer plus et tomt kommentarfelt til hvert nøgletal.
             </p>
 
