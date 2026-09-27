@@ -110,6 +110,9 @@ main { max-width: var(--maal); margin: 0 auto; padding: 26px 20px 90px; }
 .velkomst-trin-kort h3 { font-size: 16px; margin-bottom: 6px; }
 .velkomst-trin-kort p { font-size: 13px; color: var(--daempet); margin: 0; }
 
+.brutto-valg { border-color: var(--okker); background: #fbf7ef; }
+.brutto-afkryds { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.brutto-afkryds input { width: auto; }
 .kort-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .kort-top .knap { flex-shrink: 0; }
 .gitter-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

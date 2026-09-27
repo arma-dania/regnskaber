@@ -72,7 +72,7 @@ export default function NogletalKort ({ nogletal: n, resultater, aarNavne, enhed
             )
           : (
             <p className="forklaring" style={{ padding: '22px 0' }}>
-              Kan ikke beregnes med de indtastede tal. {manglerTekst(n)}
+              {n.ikkeBeregnet || <>Kan ikke beregnes med de indtastede tal. {manglerTekst(n)}</>}
             </p>
             )}
       </div>

@@ -4,7 +4,7 @@ import {
 } from 'docx'
 import { saveAs } from 'file-saver'
 import { omformetRegnskab, sammenlaegningsoversigt, flytningsoversigt } from './model.js'
-import { NOGLETAL, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
+import { nogletalFor, beregnesPaaBrutto, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
 import { filnavn } from './exportExcel.js'
 import { hentAlleGrafer } from './chartImage.js'
 
@@ -48,7 +48,10 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
       heading: HeadingLevel.TITLE,
       children: [new TextRun({ text: dataset.virksomhed || 'Regnskabsanalyse', size: 48, bold: true })]
     }),
-    afsnit(`Nøgletalsanalyse for ${aarNavne.join(', ')}. Alle beløb i ${dataset.enhed}.`, { color: '5A6570' }),
+    afsnit(`Nøgletalsanalyse for ${aarNavne.join(', ')}. Alle beløb i ${dataset.enhed.replace(/\.$/, '')}.`, { color: '5A6570' }),
+    ...(beregnesPaaBrutto(dataset)
+      ? [afsnit('Regnskabet oplyser ikke nettoomsætning. Nøgletal markeret "af bruttofortjeneste" er beregnet på bruttofortjenesten i stedet og kan kun bruges til at følge udviklingen i virksomheden, ikke til sammenligning med andre.', { color: '5A6570' })]
+      : []),
     afsnit(`Udskrevet ${new Date().toLocaleDateString('da-DK', { day: 'numeric', month: 'long', year: 'numeric' })}.`, { color: '5A6570', size: 18 })
   ]
 
@@ -93,7 +96,7 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
         ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))
       ]
     })]
-    NOGLETAL.filter(n => n.omraade === o.id).forEach(n => {
+    nogletalFor(dataset).filter(n => n.omraade === o.id).forEach(n => {
       raekker.push(new TableRow({
         children: [
           celle(n.nr, { hoejre: true }),
@@ -110,7 +113,7 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
     new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Nøgletal enkeltvis', spacing: { after: 120 } }),
     afsnit('Hvert nøgletal står med definition, tal for de tre år og en graf. Feltet "Kommentar" er tomt med vilje – analysen skriver du selv.', { color: '5A6570' })]
 
-  NOGLETAL.forEach(n => {
+  nogletalFor(dataset).forEach(n => {
     detaljer.push(new Paragraph({
       heading: HeadingLevel.HEADING_3,
       text: `${n.nr}. ${n.navn}`,

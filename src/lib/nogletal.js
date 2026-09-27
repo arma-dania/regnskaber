@@ -1,4 +1,4 @@
-import { withDerived, PRIMO_FIELDS, FIELD_MAP, enhedFaktor, iVisningsenhed } from './model.js'
+import { withDerived, PRIMO_FIELDS, FIELD_MAP, FIELDS, enhedFaktor, iVisningsenhed } from './model.js'
 
 export const OMRAADER = [
   { id: 'rentabilitet', title: 'Rentabilitetsanalyse', nrs: [1, 2, 3, 4, 5, 6] },
@@ -208,22 +208,81 @@ export const NOGLETAL = [
 
 export const NOGLETAL_MAP = Object.fromEntries(NOGLETAL.map(n => [n.nr, n]))
 
+// Regnskaber i klasse B må vise bruttofortjeneste i stedet for omsætning
+// (ÅRL § 32). Bruttofortjenesten er påvirket af både mængde og margin, så
+// den kan ikke blot erstatte omsætningen — men i disse nøgletal giver den en
+// brugbar variant til at følge udviklingen i virksomheden selv. Varianterne
+// får et eget navn, så de ikke forveksles med de almindelige nøgletal.
+const MED_BRUTTOFORTJENESTE = {
+  2: { navn: 'Overskudsgrad (af bruttofortjeneste)', naevner: 'Bruttofortjeneste',
+    forklaring: 'Viser, hvor stor en del af bruttofortjenesten der bliver til resultat af primær drift, når personaleomkostninger og afskrivninger er betalt. Tallet er langt højere end en almindelig overskudsgrad og kan ikke sammenlignes med den eller med branchetal. Sammen med nr. 3 forklarer den afkastningsgraden: nr. 2 × nr. 3 = nr. 1.' },
+  3: { navn: 'Aktivernes omsætningshastighed (af bruttofortjeneste)', taeller: 'Bruttofortjeneste',
+    forklaring: 'Viser, hvor mange kroner bruttofortjeneste hver krone i aktiver skaber. Sammen med nr. 2 forklarer den afkastningsgraden: nr. 2 × nr. 3 = nr. 1.' },
+  13: { navn: 'Anlægsaktivernes omsætningshastighed (af bruttofortjeneste)', taeller: 'Bruttofortjeneste' },
+  14: { navn: 'Immaterielle anlægsaktivers omsætningshastighed (af bruttofortjeneste)', taeller: 'Bruttofortjeneste' },
+  15: { navn: 'Materielle anlægsaktivers omsætningshastighed (af bruttofortjeneste)', taeller: 'Bruttofortjeneste' },
+  19: { navn: 'Pengestrøm fra primær drift / bruttofortjeneste', naevner: 'Bruttofortjeneste' }
+}
+const BRUTTO_FORBEHOLD = ' Beregnet på bruttofortjenesten, fordi regnskabet ikke oplyser omsætning. Bruttofortjenesten påvirkes både af, hvor meget der sælges, og af, hvor meget der tjenes pr. salg — brug tallet til at følge udviklingen i virksomheden, ikke til at sammenligne med andre.'
+
+const KRAEVER_OMSAETNING = {
+  7: 'Bruttomarginen er bruttoresultatet i procent af omsætningen og kan ikke beregnes, når regnskabet kun viser bruttofortjeneste.',
+  9: 'Kræver vareforbruget, som ikke er oplyst, når regnskabet kun viser bruttofortjeneste.',
+  11: 'Nulpunktsomsætningen bygger på bruttomarginen og kan ikke beregnes uden omsætning.',
+  12: 'Sikkerhedsmarginen bygger på nulpunktsomsætningen og kan ikke beregnes uden omsætning.',
+  16: 'Kræver vareforbruget, som ikke er oplyst, når regnskabet kun viser bruttofortjeneste.',
+  17: 'Varedebitorerne er opgjort i salgspriser inkl. moms og kan ikke holdes op mod bruttofortjenesten. Følg i stedet debitorernes udvikling direkte.',
+  18: 'Kræver varekøbet, som ikke er oplyst, når regnskabet kun viser bruttofortjeneste.'
+}
+
+/** Oplyser regnskabet bruttofortjeneste, men ingen omsætning, i nogen af årene? */
+export function manglerOmsaetning (dataset) {
+  const aar = dataset.aar.map(y => withDerived(y.values)).filter(v => FIELDS.some(f => v[f.key] != null))
+  return aar.length > 0 && aar.every(v => v.omsaetning == null) && aar.some(v => v.bruttoresultat != null)
+}
+
+export const beregnesPaaBrutto = dataset => !!dataset.bruttoBasis && manglerOmsaetning(dataset)
+
+/**
+ * Nøgletallene, som de skal vises for netop dette regnskab: uden omsætning
+ * får de nøgletal, der ikke kan beregnes, en konkret forklaring, og — når
+ * brugeren har valgt det — erstattes omsætningen af bruttofortjenesten i de
+ * nøgletal, hvor det giver mening.
+ */
+export function nogletalFor (dataset) {
+  if (!manglerOmsaetning(dataset)) return NOGLETAL
+  const brutto = !!dataset.bruttoBasis
+  return NOGLETAL.map(n => {
+    if (MED_BRUTTOFORTJENESTE[n.nr]) {
+      if (!brutto) return { ...n, ikkeBeregnet: 'Kræver omsætning, som regnskabet ikke oplyser. Slå "Beregn på bruttofortjeneste" til øverst på siden for at få en variant beregnet på bruttofortjenesten.' }
+      const { forklaring, ...ov } = MED_BRUTTOFORTJENESTE[n.nr]
+      return { ...n, ...ov, forklaring: (forklaring || n.forklaring) + BRUTTO_FORBEHOLD, medBrutto: true }
+    }
+    if (KRAEVER_OMSAETNING[n.nr]) return { ...n, ikkeBeregnet: KRAEVER_OMSAETNING[n.nr] }
+    if (n.nr === 10) {
+      return { ...n, forklaring: n.forklaring + ' Obs: I et regnskab med bruttofortjeneste er andre eksterne omkostninger allerede trukket fra i bruttofortjenesten, så de indgår hverken i tælleren eller nævneren. Tallet kan derfor ikke sammenlignes med virksomheder, der oplyser omsætning.' }
+    }
+    return n
+  })
+}
+
 // Nøgletallene regnes på beløb i den valgte visningsenhed (fx 1.000 kr.),
 // mens aktietal er i kroner og stk.; skaleringsfaktoren retter resultat/indre
 // værdi pr. aktie op i hele kroner.
 export function beregnAar (dataset, index, ekstraNogletal = []) {
   const c = buildContext(dataset, index)
+  const cBrutto = { ...c, v: { ...c.v, omsaetning: c.v.bruttoresultat } }
   const faktor = enhedFaktor(dataset.enhed || '')
   const ud = {}
 
   // 25 og 27 skal beregnes først, fordi 26 og 28 bygger på dem.
-  const rows = [...NOGLETAL, ...ekstraNogletal].sort((a, b) => {
+  const rows = [...nogletalFor(dataset), ...ekstraNogletal].sort((a, b) => {
     const order = n => ([26, 28].includes(n.nr) ? 1 : 0)
     return order(a) - order(b)
   })
 
   rows.forEach(n => {
-    const r = n.calc(c) || {}
+    const r = n.ikkeBeregnet ? {} : (n.calc(n.medBrutto ? cBrutto : c) || {})
     let value = div(r.num, r.den)
     if (value != null) {
       if (r.pct) value *= 100
