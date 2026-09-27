@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { FIELDS, SECTIONS, withDerived, visFelt } from './model.js'
+import { SECTIONS, withDerived, analyseLinjer } from './model.js'
 import { NOGLETAL, OMRAADER, beregnAlle } from './nogletal.js'
 
 const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100)
@@ -14,13 +14,9 @@ export function byggeArbejdsbog (dataset) {
   analyse.push(['Post', ...aarNavne])
   SECTIONS.forEach(sec => {
     analyse.push([sec.title.toUpperCase()])
-    FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset)).forEach(f => {
-      const raekke = [dataset.posterLabels?.[f.key] ?? f.label]
-      dataset.aar.forEach(y => {
-        const v = withDerived(y.values, y.manual)
-        raekke.push(v[f.key] ?? null)
-      })
-      analyse.push(raekke)
+    analyseLinjer(dataset, sec.id).forEach(({ felt, placerede }) => {
+      analyse.push([felt.label, ...dataset.aar.map(y => withDerived(y.values)[felt.key] ?? null)])
+      placerede.forEach(p => analyse.push([`   ${p.label}`, ...dataset.aar.map(y => y.poster?.[p.id] ?? null)]))
     })
     analyse.push([])
   })

@@ -1,4 +1,4 @@
-import { emptyYear } from './model.js'
+import { emptyYear, beregnAnalyse } from './model.js'
 
 const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
 
@@ -34,6 +34,18 @@ export function fordelKolonner (kilder) {
 
   if (!poster.length) return null
 
+  // Regnskabets poster i regnskabets rækkefølge — fra det nyeste regnskab,
+  // suppleret med poster, der kun findes i de ældre.
+  const regnskabsposter = []
+  const set = new Set()
+  ;[...kilder]
+    .sort((a, b) => (Number(b.kolonner[0]?.navn) || 0) - (Number(a.kolonner[0]?.navn) || 0))
+    .forEach(k => (k.poster || []).forEach(p => {
+      if (set.has(p.id)) return
+      set.add(p.id)
+      regnskabsposter.push(p)
+    }))
+
   const navngivneAlle = poster.filter(p => erAarstal(p.aar))
   const ukendte = poster.filter(p => !erAarstal(p.aar))
 
@@ -46,6 +58,7 @@ export function fordelKolonner (kilder) {
   if (!navngivne.length) {
     const sorteret = [...ukendte].sort((a, b) => a.raekkefoelge - b.raekkefoelge)
     return {
+      poster: regnskabsposter,
       aar: sorteret.slice(0, 3).reverse().map((p, i) => ({ label: `År ${i + 1}`, values: p.values, kilder: [p.kilde] })),
       primo: sorteret[3]?.values || {},
       primoKilde: sorteret[3]?.kilde || null,
@@ -87,6 +100,7 @@ export function fordelKolonner (kilder) {
   }
 
   return {
+    poster: regnskabsposter,
     aar: analyseaar.map(a => ({ label: a.aar, values: a.values, kilder: a.kilder })),
     primo: primoPost?.values || {},
     primoAar: primoPost?.aar || null,
@@ -97,30 +111,24 @@ export function fordelKolonner (kilder) {
 
 /**
  * Lægger fordelingen ind i datasættet uden at røre virksomhedsnavn og enhed.
- * Hvert års tal erstattes helt af den nye fordeling — de må ikke blandes med
- * gamle tal fra et tidligere selskab eller eksempeldata, for så vil poster,
- * som det nye regnskab ikke oplyser (fx omsætning), fejlagtigt beholde det
- * gamle tal og se ud som om de kommer fra det nye regnskab. Har den nye
- * fordeling færre år end skemaet (fx kun to regnskaber fundet), nulstilles
- * de resterende år også — ellers ville de beholde tal fra et tidligere,
- * urelateret selskab.
+ * Hvert års tal erstattes helt af den nye fordeling. Placeringerne i Omform
+ * bevares for de poster, der stadig findes (fx når endnu et regnskab fra
+ * samme virksomhed indlæses) — de studerendes omformning skal ikke gå tabt.
  */
 export function anvendFordeling (dataset, fordeling) {
   const kopi = structuredClone(dataset)
+  const ids = new Set(fordeling.poster.map(p => p.id))
+  kopi.poster = fordeling.poster
+  kopi.placering = Object.fromEntries(Object.entries(kopi.placering || {}).filter(([id]) => ids.has(id)))
   kopi.aar.forEach((y, i) => {
     const a = fordeling.aar[i]
     if (a) {
       y.label = a.label
-      y.values = { ...a.values }
-      y.manual = {}
+      y.poster = { ...a.values }
     } else {
       Object.assign(y, emptyYear())
     }
   })
-  kopi.primo = { ...fordeling.primo }
-  // Et nyt regnskab lægges ind – afkrydsningerne til indekstal er for det
-  // forrige selskab og skal ikke følge med.
-  kopi.indeksFelter = []
-  delete kopi.indeksFelt
-  return kopi
+  kopi.primoPoster = { ...fordeling.primo }
+  return beregnAnalyse(kopi)
 }

@@ -7,13 +7,11 @@ import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi } from
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
 
-// v2: en række rettelser (fjernelse af automatisk sammenlægning af
-// lønposter, af at nye tal blev blandet med gamle ved indlæsning, m.m.)
-// kan have efterladt forkerte tal i ældre gemte data. Ved at skifte nøgle
-// ignoreres alt gemt under v1 automatisk, så alle starter med et rent,
-// korrekt udgangspunkt i stedet for at bære en tidligere fejl videre.
-const NOEGLE = 'regnskabsanalyse-data-v2'
-const NOEGLE_FUND = 'regnskabsanalyse-fund-v2'
+// v3: regnskaberne indlæses nu med deres egne poster, og omformningen
+// gemmes som de studerendes placering af dem. Data gemt i et ældre format
+// ignoreres ved at skifte nøgle, så ingen starter med et skema i det gamle.
+const NOEGLE = 'regnskabsanalyse-data-v3'
+const NOEGLE_FUND = 'regnskabsanalyse-fund-v3'
 
 const TRIN = [
   { id: 0, navn: 'Velkommen' },
@@ -53,6 +51,8 @@ export default function App () {
   useEffect(() => {
     try { localStorage.setItem(NOEGLE, JSON.stringify(dataset)) } catch { /* fx privat browsing */ }
   }, [dataset])
+
+  useEffect(() => { window.scrollTo(0, 0) }, [trin])
 
   useEffect(() => {
     try { localStorage.setItem(NOEGLE_FUND, JSON.stringify(fund)) } catch { /* fx privat browsing */ }
@@ -141,7 +141,7 @@ export default function App () {
         )}
         {trin === 2 && (
           <>
-            <DataGrid dataset={dataset} setDataset={setDataset} harImporteret={fund.length > 0} />
+            <DataGrid dataset={dataset} setDataset={setDataset} />
             <button className="knap lys" onClick={() => setTrin(3)}>Se nøgletallene</button>
           </>
         )}
@@ -250,7 +250,7 @@ const VELKOMST_TRIN = [
   },
   {
     navn: 'Analyseform',
-    tekst: 'Se de indlæste tal omregnet til et fast skema. Har regnskabet delt en post op (fx løn og pension hver for sig), trækker du dem sammen til den rigtige, samlede post.'
+    tekst: 'Omform selv regnskabet til analysebrug: træk hver af regnskabets poster over på den linje i analyseformen, hvor den hører hjemme.'
   },
   {
     navn: 'Nøgletal og grafer',
@@ -263,10 +263,11 @@ function Velkomstside ({ gaaTilTrin }) {
     <>
       <h2 className="sektion-titel">Velkommen</h2>
       <p className="sektion-intro" style={{ maxWidth: '70ch' }}>
-        Regnskabsanalyse omformer tre års offentliggjorte årsregnskaber til ét overskueligt
-        skema og beregner automatisk 28 nøgletal fordelt på 5 analyseområder. Du skal hverken
-        taste tal ind eller regne selv — det klarer appen. Din opgave er at bruge nøgletallene
-        til selv at skrive en egentlig analyse af virksomhedens økonomi.
+        Regnskabsanalyse henter tre års offentliggjorte årsregnskaber, præcis som de står.
+        Du omformer selv regnskabet til analyseform, og appen beregner derefter 28 nøgletal
+        fordelt på 5 analyseområder. Du skal hverken taste tal ind eller regne nøgletallene
+        selv. Din opgave er at omforme regnskabet og bruge nøgletallene til selv at skrive en
+        egentlig analyse af virksomhedens økonomi.
       </p>
 
       <div className="velkomst-trin">

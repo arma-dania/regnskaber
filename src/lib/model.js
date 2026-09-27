@@ -1,5 +1,6 @@
 // Regnskabet i analyseform: de poster, der skal til for at beregne alle 28 nøgletal.
-// "derived" = beregnes automatisk, men kan overskrives manuelt af brugeren.
+// En almindelig post får sin værdi fra de af regnskabets poster, den studerende
+// har placeret på den. "derived" = beregnes automatisk ud fra de andre poster.
 
 export const SECTIONS = [
   { id: 'resultat', title: 'Resultatopgørelse i analyseform' },
@@ -14,15 +15,6 @@ export const FIELDS = [
   { key: 'vareforbrug', label: 'Vareforbrug / produktionsomkostninger', section: 'resultat' },
   { key: 'bruttoresultat', label: 'Bruttoresultat (bruttofortjeneste)', section: 'resultat', derived: 'omsaetning - vareforbrug' },
   { key: 'personaleomkostninger', label: 'Personaleomkostninger', section: 'resultat' },
-  // Nogle regnskaber tagger aldrig en samlet personaleomkostning, kun de
-  // enkeltposter, årsregnskabsloven kræver specifikation af (§98a). De vises
-  // her som almindelige poster, præcis som i regnskabet, og skal lægges
-  // sammen med Personaleomkostninger i Omform (træk-og-slip), hvis de skal
-  // indgå i kapacitetsomkostningerne.
-  { key: 'personaleomkLoen', label: 'Lønninger', section: 'resultat' },
-  { key: 'personaleomkPension', label: 'Pensioner', section: 'resultat' },
-  { key: 'personaleomkSocialSikring', label: 'Andre omkostninger til social sikring', section: 'resultat' },
-  { key: 'personaleomkAndet', label: 'Andre personaleomkostninger', section: 'resultat' },
   { key: 'andreEksterne', label: 'Andre eksterne kapacitetsomkostninger', section: 'resultat' },
   { key: 'afskrivninger', label: 'Af- og nedskrivninger', section: 'resultat' },
   { key: 'kapacitetsomkostninger', label: 'Kapacitetsomkostninger i alt', section: 'resultat', derived: 'personale + andre eksterne + afskrivninger' },
@@ -62,7 +54,13 @@ export const FIELDS = [
 
 export const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.key, f]))
 
-export const PERSONALE_KOMPONENTER = ['personaleomkLoen', 'personaleomkPension', 'personaleomkSocialSikring', 'personaleomkAndet']
+// Afsnittene i det indlæste regnskab, som det står.
+export const REGNSKABSAFSNIT = [
+  { id: 'resultat', title: 'Resultatopgørelse' },
+  { id: 'aktiver', title: 'Balance – aktiver' },
+  { id: 'passiver', title: 'Balance – passiver' },
+  { id: 'pengestroem', title: 'Pengestrømsopgørelse' }
+]
 
 // Hele balancen kan have en primoværdi. Det ældste årsregnskabs
 // sammenligningsår leverer den fjerde balancedato, som gennemsnitstallene
@@ -74,26 +72,7 @@ export const PRIMO_FIELDS = FIELDS
 export function emptyYear (label = '') {
   const values = {}
   FIELDS.forEach(f => { values[f.key] = null })
-  return { label, values, manual: {} }
-}
-
-/**
- * Skal en rå (ikke-beregnet) post vises i Omform? Tabellen der skal altid
- * være identisk med tabellen under Indlæs regnskaber — posten vises kun,
- * når den rent faktisk har et tal, enten i et af analyseårene eller (for
- * balanceposter) i primo. Beregnede summer (fx Bruttoresultat, EBIT) vises
- * altid — de hører til analyseformen selv, ikke til det indlæste regnskab.
- *
- * Primo tæller kun med for poster, der reelt bruger en primoværdi
- * (PRIMO_FIELDS, dvs. balancen) — ellers ville en post fra resultatopgørelsen
- * (fx en lønkomponent) blive ved med at stå, fordi importen lagde en (ubrugt
- * og aldrig ryddet) primoværdi ind for det ældste sammenligningsår, selvom
- * posten er tom og lagt sammen bort i alle de rigtige år.
- */
-export function visFelt (f, dataset) {
-  const harPrimo = PRIMO_FIELDS.includes(f.key) && dataset.primo && dataset.primo[f.key] != null
-  const harTal = dataset.aar.some(y => y.values[f.key] != null) || harPrimo
-  return f.derived || harTal
+  return { label, values, poster: {} }
 }
 
 export function emptyDataset () {
@@ -103,42 +82,59 @@ export function emptyDataset () {
     indeksBasisaar: 0,
     aar: [emptyYear('År 1'), emptyYear('År 2'), emptyYear('År 3')],
     primo: {},
-    posterLabels: {},
-    sammenlagtBort: []
+    // Regnskabets egne poster ({ id, label, sektion, erSum }) i regnskabets
+    // rækkefølge, deres tal pr. år (aar[i].poster) og i primo, samt hvilken
+    // analysepost hver af dem er placeret på (postId -> felt).
+    poster: [],
+    primoPoster: {},
+    placering: {}
   }
 }
 
 /**
- * Lægger to ikke-afledte poster sammen ved træk-og-slip eller et godkendt
- * omformningsforslag: kildens tal lægges til målets tal i hvert år, kilden
- * tømmes, og målet får det (eventuelt rettede) foreslåede navn. Ændrer intet
- * ved de afledte summer, som stadig regner ud fra de rå poster.
- *
- * Kilden mærkes som "sammenlagt bort": den skal forblive skjult, når den er
- * tom, også i et skema startet helt tomt (hvor tomme poster ellers altid
- * vises, så man kan taste i dem) — ellers ville en sammenlagt post pludselig
- * dukke tomt op igen bagefter, blot fordi den ikke stammer fra en import.
+ * Analysepostens værdi er summen af de af regnskabets poster, der er
+ * placeret på den — og tom, når ingen er. Primo tæller kun for balancen.
  */
-export function laegPosterSammen (dataset, kildeKey, maalKey, nytNavn) {
+export function beregnAnalyse (dataset) {
   const kopi = structuredClone(dataset)
-  kopi.aar.forEach(y => {
-    const kildeVaerdi = y.values[kildeKey]
-    const maalVaerdi = y.values[maalKey]
-    if (kildeVaerdi != null || maalVaerdi != null) {
-      y.values[maalKey] = (kildeVaerdi || 0) + (maalVaerdi || 0)
-    }
-    y.values[kildeKey] = null
-  })
-  kopi.posterLabels = { ...(kopi.posterLabels || {}), [maalKey]: nytNavn }
-  kopi.sammenlagtBort = [...new Set([...(kopi.sammenlagtBort || []), kildeKey])]
+  const placering = kopi.placering || {}
+  const summer = (tal, felter) => {
+    const ud = {}
+    felter.forEach(key => { ud[key] = null })
+    Object.entries(placering).forEach(([postId, key]) => {
+      const v = tal?.[postId]
+      if (v == null || !(key in ud)) return
+      ud[key] = (ud[key] || 0) + v
+    })
+    return ud
+  }
+  const raa = FIELDS.filter(f => !f.derived).map(f => f.key)
+  kopi.aar.forEach(y => { y.values = summer(y.poster, raa) })
+  kopi.primo = Object.fromEntries(Object.entries(summer(kopi.primoPoster, raa.filter(k => PRIMO_FIELDS.includes(k)))).filter(([, v]) => v != null))
   return kopi
 }
 
+/**
+ * Analyseformens linjer i ét afsnit til eksport: linjer med et tal i mindst
+ * ét år, hver med de af regnskabets poster, der er placeret på den.
+ */
+export function analyseLinjer (dataset, sektion) {
+  const beregnet = dataset.aar.map(y => withDerived(y.values))
+  return FIELDS
+    .filter(f => f.section === sektion && beregnet.some(v => v[f.key] != null))
+    .map(felt => ({ felt, placerede: felt.derived ? [] : (dataset.poster || []).filter(p => dataset.placering?.[p.id] === felt.key) }))
+}
+
+/** Placerer en af regnskabets poster på en analysepost (eller fjerner den med null). */
+export function placerPost (dataset, postId, key) {
+  const placering = { ...(dataset.placering || {}) }
+  if (key) placering[postId] = key
+  else delete placering[postId]
+  return beregnAnalyse({ ...dataset, placering })
+}
+
 // Afledte poster udfyldes kun, hvor der ikke allerede står et tal.
-// Et indlæst eller indtastet tal bliver aldrig regnet om — bruttofortjeneste
-// i et klasse B-regnskab er fx ikke altid omsætning minus vareforbrug.
-// Vil man have posten beregnet, tømmer man feltet.
-export function withDerived (values, manual = {}) {
+export function withDerived (values) {
   const v = { ...values }
   const har = k => v[k] !== null && v[k] !== undefined && !Number.isNaN(v[k])
   const udfyld = (k, fn) => {
@@ -181,27 +177,20 @@ function formatAarListe (labels) {
   return labels.slice(0, -1).join(', ') + ' og ' + labels[labels.length - 1]
 }
 
-// Kontroller, der fanger de typiske fejl efter en automatisk indlæsning.
+// Kontroller, der fanger typiske fejl i omformningen.
 // Samme besked for flere år (fx samme post mangler hvert år) slås sammen
 // til én, i stedet for at gentages ordret for hvert enkelt år.
 export function validate (dataset) {
   const raa = []
   dataset.aar.forEach((y, i) => {
-    const v = withDerived(y.values, y.manual)
+    const v = withDerived(y.values)
     const label = y.label || `År ${i + 1}`
     const near = (a, b) => Math.abs(a - b) <= Math.max(1, Math.abs(a) * 0.005)
     if (v.aktiverIAlt != null && v.passiverIAlt != null && !near(v.aktiverIAlt, v.passiverIAlt)) {
       raa.push({ level: 'error', year: label, text: `Balancen stemmer ikke: aktiver ${fmt(v.aktiverIAlt)} mod passiver ${fmt(v.passiverIAlt)}.` })
     }
-    if (v.omsaetning == null && v.bruttoresultat != null) {
-      raa.push({ level: 'warn', year: label, text: 'Nettoomsætning mangler. Regnskaber i klasse B viser ofte kun bruttofortjeneste – uden omsætning kan nøgletal 2, 3, 7, 11-19 ikke beregnes.' })
-    }
     if (v.kapacitetsomkostninger != null && v.kapacitetsomkostninger < 0) {
-      raa.push({ level: 'warn', year: label, text: 'Kapacitetsomkostninger er negative. Indtast omkostninger som positive tal.' })
-    }
-    const loenposter = PERSONALE_KOMPONENTER.filter(k => y.values[k] != null)
-    if (loenposter.length) {
-      raa.push({ level: 'warn', year: label, text: `Regnskabet oplyser kun personaleomkostninger i enkeltposter (${loenposter.map(k => FIELD_MAP[k].label.toLowerCase()).join(', ')}). Træk dem sammen med Personaleomkostninger i skemaet, ellers indgår de ikke i kapacitetsomkostningerne.` })
+      raa.push({ level: 'warn', year: label, text: 'Kapacitetsomkostninger er negative. Kontrollér, at der ikke er placeret en indtægt blandt omkostningerne.' })
     }
   })
 

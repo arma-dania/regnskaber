@@ -17,10 +17,10 @@ const div = (a, b) => (a == null || b == null || b === 0 ? null : a / b)
  */
 export function buildContext (dataset, index) {
   const y = dataset.aar[index]
-  const v = withDerived(y.values, y.manual)
+  const v = withDerived(y.values)
   const prevYear = index > 0 ? dataset.aar[index - 1] : null
-  const prev = prevYear ? withDerived(prevYear.values, prevYear.manual) : null
-  const primo = withDerived(dataset.primo || {}, {})
+  const prev = prevYear ? withDerived(prevYear.values) : null
+  const primo = withDerived(dataset.primo || {})
 
   const ultimoFoer = key => {
     if (prev && prev[key] != null) return prev[key]
@@ -63,7 +63,7 @@ export function buildContext (dataset, index) {
     gnsFremmedkapital, samledeDriftsomk, varekoeb, nulpunkt,
     basis: (() => {
       const b = dataset.aar[dataset.indeksBasisaar ?? 0]
-      return withDerived(b.values, b.manual)
+      return withDerived(b.values)
     })()
   }
 }

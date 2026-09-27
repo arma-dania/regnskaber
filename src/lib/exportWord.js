@@ -3,7 +3,7 @@ import {
   Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, PageBreak
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { FIELDS, SECTIONS, withDerived, visFelt } from './model.js'
+import { SECTIONS, withDerived, analyseLinjer } from './model.js'
 import { NOGLETAL, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
 import { filnavn } from './exportExcel.js'
 import { hentAlleGrafer } from './chartImage.js'
@@ -17,7 +17,7 @@ const tal = (v, decimaler = 0) =>
     ? '–'
     : new Intl.NumberFormat('da-DK', { minimumFractionDigits: decimaler, maximumFractionDigits: decimaler }).format(v)
 
-function celle (tekst, { fed = false, hoejre = false, skygge = false, bredde } = {}) {
+function celle (tekst, { fed = false, hoejre = false, skygge = false, bredde, color } = {}) {
   return new TableCell({
     borders: RAMME,
     shading: skygge ? { fill: GRAA } : undefined,
@@ -25,7 +25,7 @@ function celle (tekst, { fed = false, hoejre = false, skygge = false, bredde } =
     margins: { top: 60, bottom: 60, left: 90, right: 90 },
     children: [new Paragraph({
       alignment: hoejre ? AlignmentType.RIGHT : AlignmentType.LEFT,
-      children: [new TextRun({ text: String(tekst), bold: fed, size: 19 })]
+      children: [new TextRun({ text: String(tekst), bold: fed, size: 19, color })]
     })]
   })
 }
@@ -55,17 +55,22 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
   // Regnskabet i analyseform
   const analyseBoern = [new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Regnskabet i analyseform', spacing: { before: 320, after: 160 } })]
   SECTIONS.forEach(sec => {
-    const felter = FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset))
     const raekker = [new TableRow({
       children: [celle(sec.title, { fed: true, skygge: true, bredde: 46 }), ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))]
     })]
-    felter.forEach(f => {
+    analyseLinjer(dataset, sec.id).forEach(({ felt, placerede }) => {
       raekker.push(new TableRow({
         children: [
-          celle(dataset.posterLabels?.[f.key] ?? f.label),
-          ...dataset.aar.map(y => celle(tal(withDerived(y.values, y.manual)[f.key], f.unit === 'kr' ? 2 : 0), { hoejre: true }))
+          celle(felt.label),
+          ...dataset.aar.map(y => celle(tal(withDerived(y.values)[felt.key], felt.unit === 'kr' ? 2 : 0), { hoejre: true }))
         ]
       }))
+      placerede.forEach(p => raekker.push(new TableRow({
+        children: [
+          celle(`    ${p.label}`, { color: '5A6570' }),
+          ...dataset.aar.map(y => celle(tal(y.poster?.[p.id], 0), { hoejre: true, color: '5A6570' }))
+        ]
+      })))
     })
     analyseBoern.push(tabel(raekker), new Paragraph({ text: '', spacing: { after: 160 } }))
   })

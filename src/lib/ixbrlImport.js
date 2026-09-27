@@ -1,56 +1,122 @@
-// Mapping fra den danske årsrapporttaksonomi (fsa) og fra den engelske
-// IFRS-taksonomi (ifrs-full) til analyseformen. Store/børsnoterede selskaber
-// aflægger ofte årsrapport efter IFRS med engelske betegnelser i stedet for
-// fsa, og de to taksonomier bruger til dels forskellige navne for samme post
-// (fx trade receivables). Flere navne kan pege på samme post – det første
-// fundne vinder. Navnerummet (fsa: / ifrs-full: / …) er ligegyldigt, da kun
-// selve elementnavnet efter kolon bruges til opslag.
-const XBRL_MAP = {
-  omsaetning: ['Revenue', 'SalesRevenue', 'RevenueFromContractsWithCustomers'],
-  vareforbrug: ['CostOfSales', 'RawMaterialsAndConsumablesUsed', 'ProductionCosts', 'CostOfGoodsSold'],
-  bruttoresultat: ['GrossProfitLoss', 'GrossResult', 'GrossProfit'],
-  personaleomkostninger: ['EmployeeBenefitsExpense', 'StaffCosts'],
-  // Findes der ingen samlet post, tagger regnskabet ofte kun de enkeltposter,
-  // årsregnskabsloven kræver specifikation af (§98a): løn, pension og andre
-  // omkostninger til social sikring, plus evt. "andre personaleomkostninger".
-  // De vises som almindelige poster, præcis som i regnskabet — brugeren
-  // lægger dem selv sammen med personaleomkostninger i Omform, hvis ønsket.
-  personaleomkLoen: ['WagesAndSalaries', 'Salaries', 'WagesSalariesAndRemunerations'],
-  personaleomkPension: ['PensionCosts', 'PensionContributions', 'PostemploymentBenefitExpense', 'DefinedContributionPlanCostRecognisedAsExpense'],
-  personaleomkSocialSikring: ['OtherSocialSecurityContributions', 'SocialSecurityContributions', 'SocialSecurityCosts'],
-  personaleomkAndet: ['OtherEmployeeBenefitsExpense', 'OtherStaffCosts', 'OtherEmployeeExpense', 'OtherPersonnelExpenses'],
-  andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses', 'DistributionCosts', 'AdministrativeExpenses', 'AdministrativeExpense', 'OtherOperatingExpense'],
-  afskrivninger: ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'DepreciationAmortisationExpense', 'DepreciationAndAmortisation', 'DepreciationDepletionAndAmortisationExpense'],
-  resultatPrimaerDrift: ['ProfitLossFromOrdinaryOperatingActivities', 'OperatingProfitLoss', 'ProfitLossFromOperatingActivities'],
-  finansielleIndtaegter: ['OtherFinanceIncome', 'FinanceIncome', 'FinancialIncome'],
-  finansielleOmkostninger: ['OtherFinanceExpenses', 'FinanceCosts', 'FinancialExpenses', 'InterestExpense'],
-  resultatFoerSkat: ['ProfitLossFromOrdinaryActivitiesBeforeTax', 'ProfitLossBeforeTax'],
-  skat: ['TaxExpense', 'TaxExpenseOnOrdinaryActivities', 'IncomeTaxExpense', 'IncomeTaxExpenseContinuingOperations'],
-  aaretsResultat: ['ProfitLoss'],
+// Regnskabet indlæses, som det står: hver post i resultatopgørelse, balance
+// og pengestrømsopgørelse bliver sin egen række med regnskabets eget navn,
+// i regnskabets egen rækkefølge. Intet lægges sammen eller placeres i
+// analyseformen — det gør de studerende selv i Omform.
+//
+// Et inline XBRL-dokument (iXBRL) indeholder selve opstillingen, så navne og
+// rækkefølge læses direkte fra tabellerne. En ren XBRL-instans har hverken
+// navne eller rækkefølge; der bruges listen nedenfor som reserve. Listen
+// bruges også til at vise sumposter med fed, som i regnskabet.
+const KENDTE_POSTER = [
+  // Resultatopgørelse
+  ['Revenue', 'Nettoomsætning', 'resultat'],
+  ['OtherOperatingIncome', 'Andre driftsindtægter', 'resultat'],
+  ['ChangesInInventoriesOfFinishedGoodsWorkInProgressAndGoodsForResale', 'Ændring i lagre af færdigvarer og varer under fremstilling', 'resultat'],
+  ['CostOfSales', 'Produktionsomkostninger', 'resultat'],
+  ['RawMaterialsAndConsumablesUsed', 'Omkostninger til råvarer og hjælpematerialer', 'resultat'],
+  ['OtherExternalExpenses', 'Andre eksterne omkostninger', 'resultat'],
+  ['GrossProfitLoss', 'Bruttofortjeneste', 'resultat', true],
+  ['GrossResult', 'Bruttoresultat', 'resultat', true],
+  ['GrossProfit', 'Bruttoresultat', 'resultat', true],
+  ['DistributionCosts', 'Distributionsomkostninger', 'resultat'],
+  ['AdministrativeExpenses', 'Administrationsomkostninger', 'resultat'],
+  ['AdministrativeExpense', 'Administrationsomkostninger', 'resultat'],
+  ['EmployeeBenefitsExpense', 'Personaleomkostninger', 'resultat'],
+  ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'Af- og nedskrivninger af immaterielle og materielle anlægsaktiver', 'resultat'],
+  ['OtherOperatingExpenses', 'Andre driftsomkostninger', 'resultat'],
+  ['ProfitLossFromOrdinaryOperatingActivities', 'Resultat af primær drift', 'resultat', true],
+  ['ProfitLossFromOperatingActivities', 'Resultat af primær drift', 'resultat', true],
+  ['IncomeFromInvestmentsInGroupEnterprises', 'Indtægter af kapitalandele i tilknyttede virksomheder', 'resultat'],
+  ['IncomeFromInvestmentsInAssociates', 'Indtægter af kapitalandele i associerede virksomheder', 'resultat'],
+  ['OtherFinanceIncome', 'Andre finansielle indtægter', 'resultat'],
+  ['FinanceIncome', 'Finansielle indtægter', 'resultat'],
+  ['OtherFinanceExpenses', 'Andre finansielle omkostninger', 'resultat'],
+  ['FinanceCosts', 'Finansielle omkostninger', 'resultat'],
+  ['ProfitLossFromOrdinaryActivitiesBeforeTax', 'Resultat før skat', 'resultat', true],
+  ['ProfitLossBeforeTax', 'Resultat før skat', 'resultat', true],
+  ['TaxExpenseOnOrdinaryActivities', 'Skat af årets resultat', 'resultat'],
+  ['TaxExpense', 'Skat af årets resultat', 'resultat'],
+  ['IncomeTaxExpenseContinuingOperations', 'Skat af årets resultat', 'resultat'],
+  ['ProfitLoss', 'Årets resultat', 'resultat', true],
 
-  immaterielleAnlaeg: ['IntangibleAssets', 'IntangibleAssetsOtherThanGoodwill'],
-  materielleAnlaeg: ['PropertyPlantAndEquipment', 'TangibleAssets'],
-  finansielleAnlaeg: ['LongtermInvestmentsAndReceivables', 'FinancialAssets', 'OtherNoncurrentFinancialAssets', 'NoncurrentFinancialAssets'],
-  anlaegsaktiver: ['NoncurrentAssets', 'FixedAssets'],
-  varelager: ['Inventories'],
-  varedebitorer: ['ShorttermTradeReceivables', 'TradeReceivables', 'CurrentTradeReceivables', 'TradeAndOtherCurrentReceivables'],
-  andreTilgodehavender: ['ShorttermReceivables', 'OtherShorttermReceivables', 'OtherCurrentReceivables'],
-  likvider: ['CashAndCashEquivalents'],
-  omsaetningsaktiver: ['CurrentAssets'],
-  aktiverIAlt: ['Assets'],
+  // Aktiver
+  ['CompletedDevelopmentProjects', 'Færdiggjorte udviklingsprojekter', 'aktiver'],
+  ['AcquiredIntangibleAssets', 'Erhvervede immaterielle anlægsaktiver', 'aktiver'],
+  ['Goodwill', 'Goodwill', 'aktiver'],
+  ['IntangibleAssets', 'Immaterielle anlægsaktiver', 'aktiver', true],
+  ['IntangibleAssetsOtherThanGoodwill', 'Immaterielle aktiver', 'aktiver'],
+  ['LandAndBuildings', 'Grunde og bygninger', 'aktiver'],
+  ['PlantAndMachinery', 'Produktionsanlæg og maskiner', 'aktiver'],
+  ['FixturesFittingsToolsAndEquipment', 'Andre anlæg, driftsmateriel og inventar', 'aktiver'],
+  ['LeaseholdImprovements', 'Indretning af lejede lokaler', 'aktiver'],
+  ['PropertyPlantAndEquipmentInProgress', 'Materielle anlægsaktiver under udførelse', 'aktiver'],
+  ['PropertyPlantAndEquipment', 'Materielle anlægsaktiver', 'aktiver', true],
+  ['LongtermInvestmentsInGroupEnterprises', 'Kapitalandele i tilknyttede virksomheder', 'aktiver'],
+  ['LongtermInvestmentsInAssociates', 'Kapitalandele i associerede virksomheder', 'aktiver'],
+  ['OtherLongtermInvestments', 'Andre værdipapirer og kapitalandele', 'aktiver'],
+  ['DepositsLongtermInvestmentsAndReceivables', 'Deposita', 'aktiver'],
+  ['OtherLongtermReceivables', 'Andre tilgodehavender', 'aktiver'],
+  ['LongtermInvestmentsAndReceivables', 'Finansielle anlægsaktiver', 'aktiver', true],
+  ['NoncurrentAssets', 'Anlægsaktiver', 'aktiver', true],
+  ['RawMaterialsAndConsumables', 'Råvarer og hjælpematerialer', 'aktiver'],
+  ['ManufacturedGoodsAndGoodsForResale', 'Fremstillede varer og handelsvarer', 'aktiver'],
+  ['PrepaymentsForGoods', 'Forudbetalinger for varer', 'aktiver'],
+  ['Inventories', 'Varebeholdninger', 'aktiver', true],
+  ['ShorttermTradeReceivables', 'Tilgodehavender fra salg og tjenesteydelser', 'aktiver'],
+  ['TradeAndOtherCurrentReceivables', 'Tilgodehavender fra salg og andre tilgodehavender', 'aktiver'],
+  ['ShorttermReceivablesFromGroupEnterprises', 'Tilgodehavender hos tilknyttede virksomheder', 'aktiver'],
+  ['OtherShorttermReceivables', 'Andre tilgodehavender', 'aktiver'],
+  ['CurrentDeferredTaxAssets', 'Udskudt skatteaktiv', 'aktiver'],
+  ['ShorttermTaxReceivables', 'Tilgodehavende selskabsskat', 'aktiver'],
+  ['DeferredIncomeAssets', 'Periodeafgrænsningsposter', 'aktiver'],
+  ['ShorttermReceivables', 'Tilgodehavender', 'aktiver', true],
+  ['CashAndCashEquivalents', 'Likvide beholdninger', 'aktiver'],
+  ['CurrentAssets', 'Omsætningsaktiver', 'aktiver', true],
+  ['Assets', 'Aktiver', 'aktiver', true],
 
-  egenkapital: ['Equity'],
-  hensatteForpligtelser: ['Provisions', 'NoncurrentProvisions'],
-  langfristetGaeld: ['LongtermLiabilitiesOtherThanProvisions', 'NoncurrentLiabilities'],
-  leverandoergaeld: ['ShorttermTradePayables', 'TradePayables', 'CurrentTradePayablesToTradeSuppliers', 'TradeAndOtherCurrentPayablesToTradeSuppliers'],
-  kortfristetGaeld: ['ShorttermLiabilitiesOtherThanProvisions', 'CurrentLiabilities'],
-  passiverIAlt: ['LiabilitiesAndEquity', 'EquityAndLiabilities'],
-  pengestroemPrimaerDrift: ['CashFlowFromOperatingActivities', 'CashFlowsFromUsedInOperatingActivities']
-}
+  // Passiver
+  ['ContributedCapital', 'Virksomhedskapital', 'passiver'],
+  ['SharePremium', 'Overkurs ved emission', 'passiver'],
+  ['ReserveForNetRevaluationAccordingToEquityMethod', 'Reserve for nettoopskrivning efter den indre værdis metode', 'passiver'],
+  ['ReserveForDevelopmentExpenditure', 'Reserve for udviklingsomkostninger', 'passiver'],
+  ['RetainedEarnings', 'Overført resultat', 'passiver'],
+  ['ProposedDividendRecognisedInEquity', 'Foreslået udbytte', 'passiver'],
+  ['Equity', 'Egenkapital', 'passiver', true],
+  ['ProvisionsForDeferredTax', 'Hensættelse til udskudt skat', 'passiver'],
+  ['OtherProvisions', 'Andre hensatte forpligtelser', 'passiver'],
+  ['Provisions', 'Hensatte forpligtelser', 'passiver', true],
+  ['NoncurrentProvisions', 'Hensatte forpligtelser', 'passiver'],
+  ['LongtermMortgageDebt', 'Gæld til realkreditinstitutter', 'passiver'],
+  ['OtherPayablesIncludingTaxPayablesLiabilitiesOtherThanProvisionsLongterm', 'Anden gæld', 'passiver'],
+  ['LongtermLiabilitiesOtherThanProvisions', 'Langfristede gældsforpligtelser', 'passiver', true],
+  ['NoncurrentLiabilities', 'Langfristede forpligtelser', 'passiver', true],
+  ['ShorttermPartOfLongtermLiabilitiesOtherThanProvisions', 'Kortfristet del af langfristede gældsforpligtelser', 'passiver'],
+  ['ShorttermDebtToOtherCreditInstitutions', 'Gæld til kreditinstitutter', 'passiver'],
+  ['ShorttermDebtToBanks', 'Gæld til banker', 'passiver'],
+  ['ShorttermPrepaymentsReceivedFromCustomers', 'Modtagne forudbetalinger fra kunder', 'passiver'],
+  ['ShorttermTradePayables', 'Leverandører af varer og tjenesteydelser', 'passiver'],
+  ['TradeAndOtherCurrentPayables', 'Leverandørgæld og anden gæld', 'passiver'],
+  ['ShorttermPayablesToGroupEnterprises', 'Gæld til tilknyttede virksomheder', 'passiver'],
+  ['ShorttermTaxPayablesToGroupEnterprises', 'Gæld til tilknyttede virksomheder vedrørende selskabsskat', 'passiver'],
+  ['ShorttermTaxPayables', 'Selskabsskat', 'passiver'],
+  ['OtherPayablesIncludingTaxPayablesLiabilitiesOtherThanProvisionsShortterm', 'Anden gæld', 'passiver'],
+  ['DeferredIncome', 'Periodeafgrænsningsposter', 'passiver'],
+  ['ShorttermLiabilitiesOtherThanProvisions', 'Kortfristede gældsforpligtelser', 'passiver', true],
+  ['CurrentLiabilities', 'Kortfristede forpligtelser', 'passiver', true],
+  ['LiabilitiesOtherThanProvisions', 'Gældsforpligtelser', 'passiver', true],
+  ['LiabilitiesAndEquity', 'Passiver', 'passiver', true],
+  ['EquityAndLiabilities', 'Passiver', 'passiver', true],
 
-const POSITIVE = ['vareforbrug', 'personaleomkostninger', 'personaleomkLoen', 'personaleomkPension', 'personaleomkSocialSikring', 'personaleomkAndet', 'andreEksterne', 'afskrivninger', 'finansielleOmkostninger', 'skat']
+  // Pengestrømsopgørelse
+  ['CashFlowFromOperatingActivities', 'Pengestrømme fra driftsaktivitet', 'pengestroem', true],
+  ['CashFlowsFromUsedInOperatingActivities', 'Pengestrømme fra driftsaktivitet', 'pengestroem', true],
+  ['CashFlowFromInvestingActivities', 'Pengestrømme fra investeringsaktivitet', 'pengestroem', true],
+  ['CashFlowsFromUsedInInvestingActivities', 'Pengestrømme fra investeringsaktivitet', 'pengestroem', true],
+  ['CashFlowFromFinancingActivities', 'Pengestrømme fra finansieringsaktivitet', 'pengestroem', true],
+  ['CashFlowsFromUsedInFinancingActivities', 'Pengestrømme fra finansieringsaktivitet', 'pengestroem', true]
+]
 
-const NAVN_TIL_KEY = new Map(Object.entries(XBRL_MAP).flatMap(([key, navne]) => navne.map((n, i) => [n.toLowerCase(), { key, prioritet: i }])))
+const KENDT = new Map(KENDTE_POSTER.map(([navn, label, sektion, erSum], i) => [navn.toLowerCase(), { label, sektion, erSum: !!erSum, orden: i }]))
 
 // Real browsers strip et navnerumspræfiks fra localName ved rigtig
 // XML-tolkning (fx "nonFraction" for <ix:nonFraction>), men beholder det ved
@@ -84,7 +150,8 @@ function taelTeksten (raw, { erInline = true, format = null } = {}) {
     const n = parseFloat(s.replace(/,/g, ''))
     return Number.isFinite(n) ? n : null
   }
-  const n = parseFloat(s.replace(/[.\s\u00a0]/g, '').replace(',', '.'))
+  if (format && /zerodash|fixed-?zero/i.test(format)) return 0
+  const n = parseFloat(s.replace(/[.\s ]/g, '').replace(',', '.'))
   return Number.isFinite(n) ? n : null
 }
 
@@ -109,23 +176,68 @@ function laesKontekster (doc) {
   return ud
 }
 
+const rensTekst = s => String(s || '').replace(/­/g, '').replace(/\s+/g, ' ').trim()
+
+// Tekstfelter i iXBRL kan være delt over flere elementer (ix:continuation),
+// fx et CVR-nummer skrevet som "25 44 20 24" i fire bidder.
+function tekstMedFortsaettelse (doc, el) {
+  let tekst = el.textContent
+  let naeste = el.getAttribute('continuedAt')
+  const set = new Set()
+  while (naeste && !set.has(naeste)) {
+    set.add(naeste)
+    const fortsat = doc.querySelector(`[id="${naeste}"]`)
+    if (!fortsat) break
+    tekst += ' ' + fortsat.textContent
+    naeste = fortsat.getAttribute('continuedAt')
+  }
+  return tekst
+}
+
+function findStamdata (doc, begreb) {
+  const el = [...doc.querySelectorAll('*')].find(e =>
+    (e.getAttribute('name') || e.nodeName).split(':').pop().toLowerCase() === begreb)
+  return el ? rensTekst(tekstMedFortsaettelse(doc, el)) : null
+}
+
 // Titlen på et iXBRL-dokument fra Erhvervsstyrelsen følger typisk mønsteret
-// "<CVR-nummer> <Virksomhedsnavn> <startdato> - <slutdato> årsrapport" —
-// kun selve navnet skal stå i virksomhedsfeltet, ikke CVR-nummer og
-// regnskabsperiode.
-function udtraekVirksomhedsnavn (raaTitel) {
+// "<CVR-nummer> <Virksomhedsnavn> <startdato> - <slutdato> årsrapport" eller
+// "<Virksomhedsnavn> - Årsrapport for 2025" — kun selve navnet skal med.
+function navnFraTitel (raaTitel) {
   let t = raaTitel.trim().replace(/^\d{8}\s+/, '')
   const datoStart = t.match(/\s+\d{1,2}\.\s+\p{L}+\s+\d{4}/u)
   if (datoStart) t = t.slice(0, datoStart.index)
+  t = t.replace(/\s+[-–]\s+års(rapport|regnskab).*$/iu, '')
   return t.trim()
 }
 
-function udtraekCvr (elementer) {
-  for (const el of elementer) {
-    const navn = (el.getAttribute('name') || el.nodeName).split(':').pop().toLowerCase()
-    if (navn !== 'identificationnumbercvrofreportingentity') continue
-    const cifre = el.textContent.replace(/\D/g, '')
-    if (cifre.length === 8) return cifre
+// Overskrifter, der afgør, hvilken opgørelse de efterfølgende tal hører til.
+// "Balance" alene (fx en mellemrubrik i hoved- og nøgletal) tæller kun, når
+// den står lige efter resultatopgørelsen eller har en dato ("Balance 31.
+// december"); "Aktiver"/"Passiver" kun inde i balancen.
+function opgoerelseFraOverskrift (tekst, nu) {
+  const t = tekst.toLowerCase()
+  if (/^resultatopgørelse(\s|$)/.test(t) || /^income statement(\s|$)/.test(t)) return 'resultat'
+  if (/^balance(\s|$)/.test(t) && (nu === 'resultat' || /\d/.test(t))) return 'aktiver'
+  if (/^aktiver$/.test(t) && (nu === 'aktiver' || nu === 'passiver')) return 'aktiver'
+  if (/^(passiver|egenkapital og forpligtelser)$/.test(t) && (nu === 'aktiver' || nu === 'passiver')) return 'passiver'
+  if (/^pengestrømsopgørelse(\s|$)/.test(t)) return 'pengestroem'
+  if (/^(egenkapitalopgørelse|noter(\s|$)|anvendt regnskabspraksis|hoved- og nøgletal|hovedtal|ledelsesberetning|ledelsespåtegning|påtegninger|den uafhængige revisors|oplysninger om|selskabsoplysninger|indholdsfortegnelse)/.test(t)) return null
+  return undefined
+}
+
+const gruppe = s => (s === 'aktiver' || s === 'passiver' ? 'balance' : s)
+
+// Postens navn, som det står i regnskabet: første celle i tabelrækken.
+function raekkenavn (el) {
+  const raekke = el.closest && el.closest('tr')
+  if (raekke) {
+    const celler = [...raekke.children].filter(c => /^(td|th)$/i.test(localName(c)))
+    for (const c of celler) {
+      if ([...c.querySelectorAll('*')].some(e => localName(e) === 'nonfraction')) break
+      const t = rensTekst(c.textContent).replace(/\s+\d+(\s*,\s*\d+)*$/, '')
+      if (/\p{L}/u.test(t)) return t
+    }
   }
   return null
 }
@@ -144,78 +256,108 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
   if (doc.getElementsByTagName('parsererror').length) doc = parser.parseFromString(tekst, 'text/html')
 
   const kontekster = laesKontekster(doc)
-  const kolonner = new Map()
-  const registrer = (dato, key, vaerdi, prioritet) => {
-    if (!dato) return
-    if (!kolonner.has(dato)) kolonner.set(dato, { values: {}, prioriteter: {} })
-    const k = kolonner.get(dato)
-    if (k.values[key] != null && k.prioriteter[key] <= prioritet) return
-    k.values[key] = POSITIVE.includes(key) ? Math.abs(vaerdi) : vaerdi
-    k.prioriteter[key] = prioritet
+  const diagnostik = { antalElementer: 0, antalMatchede: 0, antalUdelukketPgaDimension: 0 }
+
+  const alle = [...doc.querySelectorAll('*')]
+  const erInlineDok = alle.some(el => localName(el) === 'nonfraction')
+
+  // Et fund = ét tal i én opgørelse: { begreb, sektion, label, dato, vaerdi }.
+  const fund = []
+  const laesFakta = el => {
+    const erInline = localName(el) === 'nonfraction'
+    const begreb = erInline
+      ? (el.getAttribute('name') || '').split(':').pop()
+      : (el.getAttribute('contextRef') && el.getAttribute('unitRef') ? el.nodeName.split(':').pop() : null)
+    if (!begreb) return null
+    diagnostik.antalElementer++
+    const ctx = kontekster[el.getAttribute('contextRef')]
+    if (!ctx) return null
+    if (ctx.harDimension) { diagnostik.antalUdelukketPgaDimension++; return null }
+    let v = taelTeksten(el.textContent, { erInline, format: el.getAttribute('format') })
+    if (v == null) return null
+    const scale = parseInt(el.getAttribute('scale') || '0', 10)
+    if (Number.isFinite(scale) && scale) v *= Math.pow(10, scale)
+    if ((el.getAttribute('sign') || '') === '-') v = -v
+    const dato = ctx.slut || ctx.instant
+    if (!dato) return null
+    return { begreb, dato, vaerdi: v }
   }
 
-  // Diagnostik til fejlmeldinger, når der ikke findes nogen genkendte tal:
-  // adskiller "intet XBRL-indhold i dokumentet" (fx forkert filtype) fra
-  // "XBRL fundet, men ingen kendte navne" (fx anden taksonomi) fra "kendte
-  // navne fundet, men kun med dimensioner" (fx opdelt på segment/selskab).
-  const diagnostik = { antalElementer: 0, antalMatchede: 0, antalUdelukketPgaDimension: 0 }
+  if (erInlineDok) {
+    // Gå dokumentet igennem i rækkefølge og hold styr på, hvilken opgørelse
+    // man står i. Hver opgørelse læses kun én gang: kommer overskriften igen
+    // senere (fx i anvendt regnskabspraksis), er det ikke selve opgørelsen.
+    let nu = null
+    const faerdige = new Set()
+    const medTal = new Set()
+    // Mangler rubrikken "Passiver", begynder passiverne efter "Aktiver i alt".
+    let aktiverIAltSet = false
+    for (const el of alle) {
+      if (localName(el) === 'nonfraction') {
+        if (!nu || faerdige.has(gruppe(nu))) { laesFakta(el); continue }
+        const f = laesFakta(el)
+        if (!f) continue
+        medTal.add(gruppe(nu))
+        if (nu === 'aktiver' && aktiverIAltSet && f.begreb !== 'Assets') nu = 'passiver'
+        if (nu === 'aktiver' && f.begreb === 'Assets') aktiverIAltSet = true
+        fund.push({ ...f, sektion: nu, label: raekkenavn(el) })
+        continue
+      }
+      const egenTekst = rensTekst([...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' '))
+      if (egenTekst.length < 3 || egenTekst.length > 90) continue
+      const ny = opgoerelseFraOverskrift(egenTekst, nu)
+      if (ny === undefined || ny === nu) continue
+      if (nu && gruppe(ny) !== gruppe(nu) && medTal.has(gruppe(nu))) faerdige.add(gruppe(nu))
+      nu = ny
+    }
+  }
+
+  // Reserve: ingen opgørelser fundet i dokumentet (fx en ren XBRL-instans).
+  // Så bruges kun de kendte begreber, med standardnavn og -rækkefølge.
   const ikkeGenkendteNavne = new Map()
+  if (!fund.length) {
+    alle.forEach(el => {
+      const f = laesFakta(el)
+      if (!f) return
+      const kendt = KENDT.get(f.begreb.toLowerCase())
+      if (!kendt) { ikkeGenkendteNavne.set(f.begreb, (ikkeGenkendteNavne.get(f.begreb) || 0) + 1); return }
+      fund.push({ ...f, sektion: kendt.sektion, label: kendt.label, orden: kendt.orden })
+    })
+    fund.sort((a, b) => a.orden - b.orden)
+  }
+  diagnostik.antalMatchede = fund.length
 
-  // Enhver kandidatpost — både ix:nonFraction og en ren instans' talposter —
-  // skal ifølge XBRL-specifikationen altid have et contextRef, så det
-  // indsnævrer kandidatlisten væsentligt i forhold til at scanne alle
-  // elementer i store dokumenter, uden at ændre hvilke poster der findes.
-  const alle = [...doc.querySelectorAll('[contextRef]')]
-  alle.forEach(el => {
-    const ln = localName(el)
-    const erInline = ln === 'nonfraction'
-    const navnAttr = el.getAttribute('name')
-    let konceptNavn = null
-    if (erInline && navnAttr) konceptNavn = navnAttr.split(':').pop()
-    // unitRef adskiller talposter fra tekstposter (fx bestyrelsesmedlemmers navne
-    // og revisoroplysninger), som en ren XBRL-instans også tagger med contextRef,
-    // men aldrig med en enhed — de skal ikke drukne diagnostikkens navneliste.
-    else if (!erInline && el.getAttribute('contextRef') && el.getAttribute('unitRef')) konceptNavn = el.nodeName.split(':').pop()
-    if (!konceptNavn) return
-    diagnostik.antalElementer++
+  // Et årsregnskab har to kolonner: regnskabsåret og sammenligningsåret.
+  // Øvrige datoer (fx 5-årsoversigten) hører ikke til opgørelserne.
+  const datoerPrAar = new Map()
+  fund.forEach(f => {
+    const aar = f.dato.slice(0, 4)
+    if (!datoerPrAar.has(aar) || datoerPrAar.get(aar) < f.dato) datoerPrAar.set(aar, f.dato)
+  })
+  const aarstal = [...datoerPrAar.keys()].sort((a, b) => Number(b) - Number(a)).slice(0, 2)
 
-    const traef = NAVN_TIL_KEY.get(konceptNavn.toLowerCase())
-    if (!traef) {
-      ikkeGenkendteNavne.set(konceptNavn, (ikkeGenkendteNavne.get(konceptNavn) || 0) + 1)
-      return
+  const poster = []
+  const postMap = new Map()
+  const kolonner = aarstal.map(aar => ({ navn: aar, values: {} }))
+  fund.forEach(f => {
+    const aar = f.dato.slice(0, 4)
+    const kol = kolonner.find(k => k.navn === aar)
+    if (!kol || datoerPrAar.get(aar) !== f.dato) return
+    const id = `${f.sektion}:${f.begreb}`
+    if (!postMap.has(id)) {
+      const kendt = KENDT.get(f.begreb.toLowerCase())
+      const post = { id, label: f.label || kendt?.label || f.begreb, sektion: f.sektion, erSum: !!kendt?.erSum }
+      postMap.set(id, post)
+      poster.push(post)
     }
-    diagnostik.antalMatchede++
-
-    const ctxId = el.getAttribute('contextRef')
-    const ctx = kontekster[ctxId]
-    if (!ctx || ctx.harDimension) {
-      if (ctx?.harDimension) diagnostik.antalUdelukketPgaDimension++
-      return
-    }
-
-    let raa = taelTeksten(el.textContent, { erInline, format: el.getAttribute('format') })
-    if (raa == null) return
-    const scale = parseInt(el.getAttribute('scale') || '0', 10)
-    if (Number.isFinite(scale) && scale) raa *= Math.pow(10, scale)
-    if ((el.getAttribute('sign') || '') === '-') raa = -raa
-
-    const dato = ctx.slut || ctx.instant
-    registrer(dato, traef.key, raa, traef.prioritet)
+    if (kol.values[id] == null) kol.values[id] = f.vaerdi
   })
 
-  const sorteret = [...kolonner.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
   const titel = (doc.querySelector('title')?.textContent || '').slice(0, 200)
-  const virksomhed = udtraekVirksomhedsnavn(titel)
-  const cvr = udtraekCvr(alle) || titel.trim().match(/^(\d{8})\s/)?.[1] || null
+  const virksomhed = findStamdata(doc, 'nameofreportingentity') || navnFraTitel(titel)
+  const cvrCifre = (findStamdata(doc, 'identificationnumbercvrofreportingentity') || '').replace(/\D/g, '')
+  const cvr = cvrCifre.length === 8 ? cvrCifre : (titel.trim().match(/^(\d{8})\s/)?.[1] || null)
 
-  // De ukendte navne forklarer, hvilken taksonomi eller opsætning dokumentet
-  // reelt bruger — fx til at udvide navnelisterne ovenfor med den rigtige
-  // betegnelse. Et stort regnskab kan tagge langt over 50 forskellige
-  // begreber, og hovedtallene (omsætning, aktiver, …) optræder typisk kun
-  // nogle få gange hver — lige så ofte som mange noteposter — så en kort,
-  // hyppighedssorteret top-liste risikerer at drukne dem i note-støj.
-  // Listen sorteres derfor efter hyppighed, men er lang nok til, at
-  // hovedtallene bør være med, selv i et regnskab med mange noter.
   diagnostik.antalUnikkeIkkeGenkendte = ikkeGenkendteNavne.size
   diagnostik.ikkeGenkendteNavne = [...ikkeGenkendteNavne.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -228,36 +370,29 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
     cvr,
     enhed: 'kr.',
     diagnostik,
-    kolonner: sorteret
-      .filter(([, k]) => Object.keys(k.values).length > 0)
-      .slice(0, 4)
-      .map(([dato, k]) => ({ navn: dato.slice(0, 4), values: k.values }))
+    poster,
+    kolonner: kolonner.filter(k => Object.keys(k.values).length > 0)
   }
 }
 
 /**
  * Forklarer på dansk, hvorfor et dokument ikke gav nogen talkolonner, ud fra
  * diagnostikken fra parseXbrlDokument — så brugeren ved, om dokumentet slet
- * ikke var XBRL, brugte en ukendt taksonomi, eller kun havde tallene opdelt
- * på en dimension (fx segment eller selskab i en koncern).
+ * ikke var XBRL, ikke indeholdt en genkendelig resultatopgørelse eller
+ * balance, eller kun havde tallene opdelt på en dimension (fx segment eller
+ * selskab i en koncern).
  */
 export function diagnostikTekst (diagnostik) {
   if (!diagnostik || !diagnostik.antalElementer) {
     return 'Dokumentet ser ikke ud til at indeholde XBRL-mærkede tal. Kontrollér, at adressen peger på selve regnskabsdokumentet og ikke en visningsside.'
   }
-  if (!diagnostik.antalMatchede) {
-    const navne = diagnostik.ikkeGenkendteNavne || []
-    const eksempler = navne.map(n => n.navn).join(', ')
-    const optaelling = diagnostik.antalUnikkeIkkeGenkendte > navne.length
-      ? ` (${navne.length} af ${diagnostik.antalUnikkeIkkeGenkendte} forskellige navne i dokumentet, mest hyppige først)`
-      : ''
-    return 'Dokumentet indeholder XBRL-mærkede tal, men ingen af de kendte begreber fra fsa- eller ifrs-full-taksonomien blev genkendt. Regnskabet bruger muligvis en anden taksonomi eller opsætning.' +
-      (eksempler ? ` Navne fundet i dokumentet${optaelling}: ${eksempler}.` : '')
+  if (diagnostik.antalUdelukketPgaDimension >= diagnostik.antalElementer) {
+    return 'Dokumentet indeholder tal, men de er alle opdelt på en dimension (fx segment eller selskab i en koncern) uden en samlet sum uden dimension. Prøv evt. et andet dokument fra samme regnskab (fx moderselskabstal i stedet for koncerntal).'
   }
-  if (diagnostik.antalUdelukketPgaDimension >= diagnostik.antalMatchede) {
-    return 'Dokumentet indeholder genkendte tal, men de er alle opdelt på en dimension (fx segment eller selskab i en koncern) uden en samlet sum uden dimension. Prøv evt. et andet dokument fra samme regnskab (fx moderselskabstal i stedet for koncerntal).'
-  }
-  return 'Der blev fundet genkendte tal, men ingen af dem kunne knyttes til en balancedato.'
+  const navne = diagnostik.ikkeGenkendteNavne || []
+  const eksempler = navne.map(n => n.navn).join(', ')
+  return 'Dokumentet indeholder XBRL-mærkede tal, men hverken en resultatopgørelse eller en balance kunne findes i det.' +
+    (eksempler ? ` Begreber fundet i dokumentet: ${eksempler}.` : '')
 }
 
 /**

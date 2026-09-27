@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
 import { importerIxbrlLink, importerXbrlFil, soegRegnskaber, diagnostikTekst } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
-import { FIELDS, SECTIONS, emptyDataset } from '../lib/model.js'
+import { REGNSKABSAFSNIT, emptyDataset } from '../lib/model.js'
 
 const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
 
@@ -281,7 +281,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
 }
 
 function Fordelingskort ({ fordeling, gaaTilTrin }) {
-  const { aar, primoAar, primo, advarsler } = fordeling
+  const { poster, aar, primoAar, primo, advarsler } = fordeling
   const antalPrimo = Object.keys(primo || {}).length
 
   const kolonner = [
@@ -292,7 +292,7 @@ function Fordelingskort ({ fordeling, gaaTilTrin }) {
   return (
     <div className="kort" style={{ borderColor: 'var(--petrol)' }}>
       <h3>Sådan fordeles årene</h3>
-      <p className="hjaelp">Tallene lægges automatisk i skemaet, efterhånden som de indlæses. Tjek tidslinjen og tallene, og ret dem om nødvendigt i Omform.</p>
+      <p className="hjaelp">Regnskabernes poster og tal, præcis som de står i regnskaberne. I Analyseform omformer du dem selv til analysebrug.</p>
 
       <div className="tidslinje">
         {primoAar
@@ -328,16 +328,16 @@ function Fordelingskort ({ fordeling, gaaTilTrin }) {
             </tr>
           </thead>
           <tbody>
-            {SECTIONS.map(sec => {
-              const felter = FIELDS.filter(f => f.section === sec.id && kolonner.some(k => k.values[f.key] != null))
-              if (!felter.length) return null
+            {REGNSKABSAFSNIT.map(afs => {
+              const raekker = poster.filter(p => p.sektion === afs.id && kolonner.some(k => k.values[p.id] != null))
+              if (!raekker.length) return null
               return (
-                <Fragmenter key={sec.id}>
-                  <tr className="gruppe"><td colSpan={1 + kolonner.length}>{sec.title}</td></tr>
-                  {felter.map(f => (
-                    <tr key={f.key}>
-                      <td>{f.label}</td>
-                      {kolonner.map((k, i) => <td key={i} className="num">{fmt(k.values[f.key])}</td>)}
+                <Fragmenter key={afs.id}>
+                  <tr className="gruppe"><td colSpan={1 + kolonner.length}>{afs.title}</td></tr>
+                  {raekker.map(p => (
+                    <tr key={p.id} className={p.erSum ? 'sum' : ''}>
+                      <td>{p.label}</td>
+                      {kolonner.map((k, i) => <td key={i} className="num">{fmt(k.values[p.id])}</td>)}
                     </tr>
                   ))}
                 </Fragmenter>
