@@ -54,6 +54,12 @@ export default function App () {
 
   useEffect(() => { window.scrollTo(0, 0) }, [trin])
 
+  // En kvittering (fx "Skemaet er tømt.") gælder kun den handling, den
+  // kvitterer for — den forsvinder, når der indlæses nye regnskaber, eller
+  // når man selv skifter trin.
+  useEffect(() => { if (fund.length) setKvittering(null) }, [fund])
+  const skiftTrin = t => { setKvittering(null); setTrin(t) }
+
   useEffect(() => {
     try { localStorage.setItem(NOEGLE_FUND, JSON.stringify(fund)) } catch { /* fx privat browsing */ }
   }, [fund])
@@ -120,7 +126,7 @@ export default function App () {
           {TRIN.map(t => (
             <button
               key={t.id} className="trin-knap" aria-current={trin === t.id}
-              onClick={() => setTrin(t.id)}
+              onClick={() => skiftTrin(t.id)}
             >
               <span className="nummer">{t.id}</span>{t.navn}
             </button>
@@ -131,18 +137,18 @@ export default function App () {
       <main>
         {kvittering && <div className="besked">{kvittering}</div>}
 
-        {trin === 0 && <Velkomstside gaaTilTrin={setTrin} />}
+        {trin === 0 && <Velkomstside gaaTilTrin={skiftTrin} />}
 
         {trin === 1 && (
           <ImportPanel
-            dataset={dataset} setDataset={setDataset} gaaTilTrin={setTrin}
+            dataset={dataset} setDataset={setDataset} gaaTilTrin={skiftTrin}
             fund={fund} setFund={setFund} cvr={cvr} setCvr={setCvr} traf={traf} setTraf={setTraf}
           />
         )}
         {trin === 2 && (
           <>
             <DataGrid dataset={dataset} setDataset={setDataset} />
-            <button className="knap lys" onClick={() => setTrin(3)}>Se nøgletallene</button>
+            <button className="knap lys" onClick={() => skiftTrin(3)}>Se nøgletallene</button>
           </>
         )}
         {trin === 3 && (
