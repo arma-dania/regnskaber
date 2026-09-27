@@ -292,7 +292,7 @@ function Fordelingskort ({ fordeling, gaaTilTrin }) {
   return (
     <div className="kort" style={{ borderColor: 'var(--petrol)' }}>
       <h3>Sådan fordeles årene</h3>
-      <p className="hjaelp">Regnskabernes poster og tal, præcis som de står i regnskaberne. I Analyseform omformer du dem selv til analysebrug.</p>
+      <p className="hjaelp">Regnskabernes poster og tal, præcis som de står i regnskaberne. I Analyseform tilpasser du selv omformningen til analysebrug.</p>
 
       <div className="tidslinje">
         {primoAar

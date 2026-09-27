@@ -220,39 +220,35 @@ table.data input:focus { border-color: var(--petrol); background: #fff; outline:
 .tidslinje-punkt.primo .rolle { color: var(--okker); }
 .tidslinje-punkt .detalje { font-size: 11px; color: var(--daempet); }
 
-/* --- Omform: regnskabets poster trækkes over på analyseformens linjer --- */
-.omform { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 16px; align-items: start; }
-.omform-poster { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
-.omform-poster.traek-over { outline: 2px dashed var(--petrol); outline-offset: -2px; background: var(--petrol-lys); }
-@media (max-width: 900px) {
-  .omform { grid-template-columns: 1fr; }
-  .omform-poster { position: static; max-height: 50vh; }
-}
-.omform-afsnit { margin-bottom: 12px; }
-.omform-afsnit-titel { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--daempet); font-weight: 600; margin: 8px 0 6px; }
-.regnskabspost {
-  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-  padding: 5px 8px; margin-bottom: 3px; font-size: 13px;
-  background: #fff; border: 1px solid var(--linje); border-radius: var(--radius); cursor: grab;
-}
-.regnskabspost:hover { border-color: var(--petrol); }
-.regnskabspost:active { cursor: grabbing; }
-.regnskabspost.sum { font-weight: 600; }
-.regnskabspost.placeret { background: #f6f7f5; color: var(--daempet); border-style: dashed; }
-.regnskabspost.valgt { outline: 2px solid var(--petrol); outline-offset: 1px; }
-.regnskabspost-navn { display: flex; flex-direction: column; min-width: 0; }
-.regnskabspost-placering { font-size: 11px; font-weight: 400; color: var(--petrol); }
-.regnskabspost-tal { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* --- Omform: regnskabets poster flyttes mellem analyseformens linjer --- */
 table.data tr.kan-modtage { cursor: pointer; }
 table.data tr.kan-modtage:hover td { background: var(--petrol-lys); }
-table.data tr.placeret-post td { font-size: 13px; color: var(--daempet); padding-top: 3px; padding-bottom: 3px; }
-table.data tr.placeret-post td:first-child { padding-left: 22px; }
-table.data tr.placeret-post.valgt td { background: var(--petrol-lys); }
+table.data tr.placeret-post td,
+table.data tr.ikke-placeret-post td { font-size: 13px; color: var(--daempet); padding-top: 3px; padding-bottom: 3px; cursor: grab; }
+table.data tr.placeret-post td:first-child,
+table.data tr.ikke-placeret-post td:first-child { padding-left: 24px; }
+table.data tr.placeret-post td:first-child .postnavn::before { content: '↳'; margin-right: -2px; }
+table.data tr.ikke-placeret-post td { color: var(--blaek); background: #fbf7ef; }
+table.data tr.ikke-placeret-post.daekket td { color: var(--daempet); background: #f6f7f5; }
+table.data tr.regnskabssum td:first-child { font-weight: 600; }
+table.data tr.valgt td { background: var(--petrol-lys); outline: 2px solid var(--petrol); outline-offset: -2px; }
+table.data tr.ikke-placeret-titel td {
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+  color: var(--okker); background: #fbf4e6; border-top: 1px solid var(--linje); padding: 6px 10px;
+}
+.hjaelp-inline { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--daempet); }
+table.data tr.daekkede-knap td { padding: 4px 10px 8px 24px; }
+.link-knap { border: none; background: none; padding: 0; color: var(--petrol); font-size: 12px; cursor: pointer; text-decoration: underline; }
 .postnavn.traekbar { cursor: grab; }
 .fjern-placering {
   border: none; background: none; color: var(--daempet); cursor: pointer;
   font-size: 15px; line-height: 1; padding: 0 4px;
 }
 .fjern-placering:hover { color: var(--ned); }
+/* Ved klik-placering skal vejledningen ses, mens man ruller ned til linjen. */
+.valg-flydende {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40;
+  width: min(560px, calc(100vw - 32px)); margin: 0; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
 table.data tr[draggable="true"]:active { cursor: grabbing; }
 table.data tr.traek-over td { background: var(--petrol-lys); outline: 2px dashed var(--petrol); outline-offset: -2px; }
