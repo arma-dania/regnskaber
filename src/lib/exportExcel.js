@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 import { omformetRegnskab, sammenlaegningsoversigt, flytningsoversigt } from './model.js'
-import { NOGLETAL, OMRAADER, beregnAlle } from './nogletal.js'
+import { nogletalFor, OMRAADER, beregnAlle } from './nogletal.js'
 
 const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100)
 
@@ -36,7 +36,7 @@ export function byggeArbejdsbog (dataset) {
   nt.splice(1, 1)
   OMRAADER.forEach(o => {
     nt.push([o.title.toUpperCase()])
-    NOGLETAL.filter(n => n.omraade === o.id).forEach(n => {
+    nogletalFor(dataset).filter(n => n.omraade === o.id).forEach(n => {
       const vaerdier = resultater.map(r => r2(r[n.nr].value))
       const foerste = vaerdier[0]
       const sidste = vaerdier[vaerdier.length - 1]
@@ -51,7 +51,7 @@ export function byggeArbejdsbog (dataset) {
 
   // Ark 3: tæller og nævner bag hvert tal
   const grundlag = [['Nr.', 'Nøgletal', 'Formel', ...aarNavne.flatMap(a => [`${a} tæller`, `${a} nævner`, `${a} resultat`])]]
-  NOGLETAL.forEach(n => {
+  nogletalFor(dataset).forEach(n => {
     const celler = []
     resultater.forEach(r => {
       celler.push(r2(r[n.nr].num), r2(r[n.nr].den), r2(r[n.nr].value))
@@ -64,7 +64,7 @@ export function byggeArbejdsbog (dataset) {
 
   // Ark 4: definitioner til opslag
   const def = [['Nr.', 'Område', 'Nøgletal', 'Tæller', 'Nævner', 'Hvad tallet viser']]
-  NOGLETAL.forEach(n => {
+  nogletalFor(dataset).forEach(n => {
     const omr = OMRAADER.find(o => o.id === n.omraade)
     def.push([n.nr, omr.title, n.navn, n.taeller, n.naevner, n.forklaring])
   })

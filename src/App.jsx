@@ -3,7 +3,7 @@ import ImportPanel from './components/ImportPanel.jsx'
 import DataGrid from './components/DataGrid.jsx'
 import NogletalKort from './components/NogletalKort.jsx'
 import { emptyDataset, FIELDS, SECTIONS } from './lib/model.js'
-import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi } from './lib/nogletal.js'
+import { nogletalFor, manglerOmsaetning, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi } from './lib/nogletal.js'
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
 
@@ -159,8 +159,36 @@ export default function App () {
               Word-dokumentet indeholder de samme grafer plus et tomt kommentarfelt til hvert nøgletal.
             </p>
 
+            {manglerOmsaetning(dataset) && (
+              <div className="kort brutto-valg">
+                <h3>Regnskabet oplyser ikke nettoomsætning</h3>
+                <p className="hjaelp">
+                  Virksomheder i regnskabsklasse B må vise bruttofortjeneste i stedet for omsætning.
+                  Nøgletal, der bruger omsætningen, kan derfor ikke beregnes som normalt. Nogle af dem
+                  kan i stedet beregnes på bruttofortjenesten — de får så et eget navn, fx
+                  "Overskudsgrad (af bruttofortjeneste)".
+                </p>
+                <label className="brutto-afkryds">
+                  <input
+                    type="checkbox" checked={!!dataset.bruttoBasis}
+                    onChange={e => setDataset(d => ({ ...d, bruttoBasis: e.target.checked }))}
+                  />
+                  Beregn på bruttofortjeneste i stedet
+                </label>
+                {dataset.bruttoBasis && (
+                  <p className="hjaelp" style={{ margin: '10px 0 0' }}>
+                    Bruttofortjenesten påvirkes både af, hvor meget der sælges, og af, hvor meget der
+                    tjenes pr. salg (og af de eksterne omkostninger). Et fald kan altså dække over et
+                    stigende salg med lavere avance. Brug derfor tallene til at følge udviklingen i
+                    virksomheden selv — ikke til at sammenligne med branchetal eller virksomheder, der
+                    oplyser omsætning.
+                  </p>
+                )}
+              </div>
+            )}
+
             {OMRAADER.map(o => {
-              const gruppeNogletal = NOGLETAL.filter(n => n.omraade === o.id)
+              const gruppeNogletal = nogletalFor(dataset).filter(n => n.omraade === o.id)
               return (
                 <section key={o.id}>
                   <div className="omraade-overskrift">
