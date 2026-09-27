@@ -120,10 +120,12 @@ export async function importerPdf (file) {
 
   const aarstal = gaetAarstal(helTekst.slice(0, 4000))
   const navn = (alleLinjer.find(l => /(A\/S|ApS|I\/S|K\/S|IVS)\s*$/.test(l)) || '').trim()
+  const cvrCifre = (helTekst.match(/CVR[\s.-]*(?:nr|nummer)?[\s.:-]*((?:\d\s?){8})/i)?.[1] || '').replace(/\s/g, '')
 
   return {
     kilde: file.name,
     virksomhed: navn,
+    cvr: cvrCifre.length === 8 ? cvrCifre : null,
     enhed: gaetEnhed(helTekst),
     kolonner: [
       { navn: aarstal[0] ? String(aarstal[0]) : 'Regnskabsår', values: normaliser(kolonner[0]) },

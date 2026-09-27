@@ -120,6 +120,16 @@ function udtraekVirksomhedsnavn (raaTitel) {
   return t.trim()
 }
 
+function udtraekCvr (elementer) {
+  for (const el of elementer) {
+    const navn = (el.getAttribute('name') || el.nodeName).split(':').pop().toLowerCase()
+    if (navn !== 'identificationnumbercvrofreportingentity') continue
+    const cifre = el.textContent.replace(/\D/g, '')
+    if (cifre.length === 8) return cifre
+  }
+  return null
+}
+
 /**
  * Læser både inline XBRL (XHTML) og en ren XBRL-instans.
  *
@@ -194,7 +204,9 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
   })
 
   const sorteret = [...kolonner.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
-  const virksomhed = udtraekVirksomhedsnavn((doc.querySelector('title')?.textContent || '').slice(0, 200))
+  const titel = (doc.querySelector('title')?.textContent || '').slice(0, 200)
+  const virksomhed = udtraekVirksomhedsnavn(titel)
+  const cvr = udtraekCvr(alle) || titel.trim().match(/^(\d{8})\s/)?.[1] || null
 
   // De ukendte navne forklarer, hvilken taksonomi eller opsætning dokumentet
   // reelt bruger — fx til at udvide navnelisterne ovenfor med den rigtige
@@ -213,6 +225,7 @@ export function parseXbrlDokument (tekst, kilde = '', ParserClass = globalThis.D
   return {
     kilde,
     virksomhed,
+    cvr,
     enhed: 'kr.',
     diagnostik,
     kolonner: sorteret
