@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { SECTIONS, withDerived, analyseLinjer } from './model.js'
+import { omformetRegnskab, sammenlaegningsoversigt } from './model.js'
 import { NOGLETAL, OMRAADER, beregnAlle } from './nogletal.js'
 
 const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100)
@@ -12,14 +12,16 @@ export function byggeArbejdsbog (dataset) {
   // Ark 1: regnskabet i analyseform
   const analyse = [[`${dataset.virksomhed || 'Virksomhed'} – regnskab i analyseform`], [`Beløb i ${dataset.enhed}`], []]
   analyse.push(['Post', ...aarNavne])
-  SECTIONS.forEach(sec => {
-    analyse.push([sec.title.toUpperCase()])
-    analyseLinjer(dataset, sec.id).forEach(({ felt, placerede }) => {
-      analyse.push([felt.label, ...dataset.aar.map(y => withDerived(y.values)[felt.key] ?? null)])
-      placerede.forEach(p => analyse.push([`   ${p.label}`, ...dataset.aar.map(y => y.poster?.[p.id] ?? null)]))
-    })
+  omformetRegnskab(dataset).forEach(afs => {
+    analyse.push([afs.title.toUpperCase()])
+    afs.raekker.forEach(r => analyse.push([r.navn, ...r.tal]))
     analyse.push([])
   })
+  const oversigt = sammenlaegningsoversigt(dataset)
+  if (oversigt.length) {
+    analyse.push(['SAMMENLAGTE POSTER'])
+    oversigt.forEach(o => analyse.push([o.navn, o.dele.join(' + ')]))
+  }
   const ws1 = XLSX.utils.aoa_to_sheet(analyse)
   ws1['!cols'] = [{ wch: 46 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
   XLSX.utils.book_append_sheet(wb, ws1, 'Analyseform')
