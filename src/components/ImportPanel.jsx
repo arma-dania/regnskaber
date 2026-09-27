@@ -2,9 +2,20 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
 import { importerIxbrlLink, importerXbrlFil, soegRegnskaber, diagnostikTekst } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
-import { FIELDS, SECTIONS } from '../lib/model.js'
+import { FIELDS, SECTIONS, emptyDataset } from '../lib/model.js'
 
 const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
+
+const normaliserNavn = navn => (navn || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+
+// CVR-nummeret afgør, når begge dokumenter har et; ellers navnet. Kan ingen
+// af delene sammenlignes, regnes de for samme virksomhed.
+function sammeVirksomhed (a, b) {
+  if (a.cvr && b.cvr) return a.cvr === b.cvr
+  const na = normaliserNavn(a.virksomhed)
+  const nb = normaliserNavn(b.virksomhed)
+  return !na || !nb || na === nb
+}
 
 // Sentinel til at kende forskel på "endnu ikke set nogen fordeling" og en
 // reel fordeling (som kan være null, når intet er indlæst endnu).
@@ -36,39 +47,46 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     }
   }, [fordeling, setDataset])
 
-  // Et virksomhedsnavn fra et eksempel eller en tidligere, helt anden
-  // indlæsning skal ikke blive hængende, når man starter en frisk
-  // indlæsning — men er der allerede indlæst ét eller flere regnskaber i
-  // denne omgang, skal det første regnskabs navn ikke overskrives af de
-  // næste.
-  const naevnVirksomhed = nytNavn => (fund.length === 0 && nytNavn) ? nytNavn : (dataset.virksomhed || nytNavn || '')
+  // Nye dokumenter lægges til de allerede indlæste, så længe de er fra samme
+  // virksomhed — ellers ville tallene fra to selskaber blive flettet sammen
+  // år for år, og det første selskabs navn blive hængende. Er de fra en
+  // anden virksomhed (eller bedt om at erstatte), startes der forfra.
+  function modtag (nye, { erstat = false } = {}) {
+    const andenVirksomhed = !erstat && fund.some(gammel => nye.some(ny => !sammeVirksomhed(gammel, ny)))
+    const navn = nye.find(n => n.virksomhed)?.virksomhed || ''
+    if (erstat || andenVirksomhed || fund.length === 0) {
+      const tom = emptyDataset()
+      setFund(nye)
+      setDataset({ ...tom, virksomhed: navn, enhed: nye.find(n => n.enhed)?.enhed || tom.enhed })
+    } else {
+      setFund(f => [...f, ...nye])
+      setDataset(d => ({ ...d, virksomhed: d.virksomhed || navn }))
+    }
+    return andenVirksomhed
+      ? `De tidligere indlæste regnskaber${dataset.virksomhed ? ` for ${dataset.virksomhed}` : ''} er fjernet, fordi de nye er fra en anden virksomhed${navn ? ` (${navn})` : ''}.`
+      : null
+  }
 
   async function haandterFiler (filer) {
     setArbejder(true)
     setStatus(null)
     const nye = []
+    let besked = null
     for (const f of filer) {
       try {
         const erXbrl = /\.(xml|xhtml|html?)$/i.test(f.name)
         const r = erXbrl ? await importerXbrlFil(f) : await importerPdf(f)
         if (!r.kolonner.length) {
           const forklaring = erXbrl ? diagnostikTekst(r.diagnostik) : 'Prøv en iXBRL-adresse i stedet.'
-          setStatus({ type: 'advarsel', tekst: `${f.name}: ingen regnskabsposter blev genkendt. ${forklaring}` })
+          besked = { type: 'advarsel', tekst: `${f.name}: ingen regnskabsposter blev genkendt. ${forklaring}` }
         }
         nye.push(r)
       } catch (e) {
-        setStatus({ type: 'fejl', tekst: `${f.name} kunne ikke læses: ${e.message}` })
+        besked = { type: 'fejl', tekst: `${f.name} kunne ikke læses: ${e.message}` }
       }
     }
-    if (nye.length) {
-      setFund(f => [...f, ...nye])
-      const foerste = nye[0]
-      setDataset(d => ({
-        ...d,
-        virksomhed: naevnVirksomhed(foerste.virksomhed),
-        enhed: foerste.enhed || d.enhed
-      }))
-    }
+    const note = nye.length ? modtag(nye) : null
+    setStatus(besked ? { ...besked, tekst: [note, besked.tekst].filter(Boolean).join(' ') } : note ? { type: 'info', tekst: note } : null)
     setArbejder(false)
   }
 
@@ -81,8 +99,8 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
       if (!r.kolonner.length) {
         setStatus({ type: 'advarsel', tekst: `Dokumentet blev hentet, men indeholdt ingen genkendte XBRL-poster. ${diagnostikTekst(r.diagnostik)}` })
       } else {
-        setFund(f => [...f, r])
-        setDataset(d => ({ ...d, virksomhed: naevnVirksomhed(r.virksomhed), enhed: r.enhed || d.enhed }))
+        const note = modtag([r])
+        if (note) setStatus({ type: 'info', tekst: note })
         setLink('')
       }
     } catch (e) {
@@ -99,14 +117,14 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     try {
       const liste = await soegRegnskaber(rent)
       if (!liste.length) setStatus({ type: 'advarsel', tekst: 'Der blev ikke fundet offentliggjorte regnskaber på det CVR-nummer.' })
-      setTraf(liste)
+      setTraf(liste.map(r => ({ ...r, cvr: rent })))
     } catch (e) {
       setStatus({ type: 'fejl', tekst: e.message })
     }
     setArbejder(false)
   }
 
-  async function hentFraTraef (liste) {
+  async function hentFraTraef (liste, { erstat = false } = {}) {
     setArbejder(true); setStatus(null)
     const nye = []
     const advarsler = []
@@ -127,7 +145,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
       }
       const flerTal = urls.length > 1
       dokumenter.forEach((d, i) => {
-        nye.push({ ...d, kilde: `Årsrapport ${r.aar}` + (flerTal ? ` (dokument ${i + 1} af ${urls.length})` : '') })
+        nye.push({ ...d, cvr: d.cvr || r.cvr || null, kilde: `Årsrapport ${r.aar}` + (flerTal ? ` (dokument ${i + 1} af ${urls.length})` : '') })
       })
       const kolonneAntal = dokumenter.reduce((sum, d) => sum + d.kolonner.length, 0)
       if (dokumenter.length && !kolonneAntal) {
@@ -136,12 +154,11 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
       }
       fejl.forEach(m => advarsler.push(`Årsrapport ${r.aar}: ${m}`))
     }
-    if (nye.length) {
-      setFund(f => [...f, ...nye])
-      setDataset(d => ({ ...d, virksomhed: naevnVirksomhed(nye.find(n => n.virksomhed)?.virksomhed) }))
-    }
+    const note = nye.length ? modtag(nye, { erstat }) : null
     if (advarsler.length) {
-      setStatus({ type: nye.length ? 'advarsel' : 'fejl', tekst: advarsler.join(' ') })
+      setStatus({ type: nye.length ? 'advarsel' : 'fejl', tekst: [note, ...advarsler].filter(Boolean).join(' ') })
+    } else if (note) {
+      setStatus({ type: 'info', tekst: note })
     }
     setArbejder(false)
   }
@@ -244,7 +261,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
             </table>
           </div>
           <button className="knap primaer" style={{ marginTop: 12 }} disabled={arbejder}
-            onClick={() => hentFraTraef(traf.filter(r => r.xbrl).slice(0, 3))}>
+            onClick={() => hentFraTraef(traf.filter(r => r.xbrl).slice(0, 3), { erstat: true })}>
             Hent de tre nyeste med XBRL
           </button>
         </div>
