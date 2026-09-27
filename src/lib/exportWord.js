@@ -3,7 +3,7 @@ import {
   Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, PageBreak
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { SECTIONS, withDerived, analyseLinjer } from './model.js'
+import { omformetRegnskab, sammenlaegningsoversigt } from './model.js'
 import { NOGLETAL, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
 import { filnavn } from './exportExcel.js'
 import { hentAlleGrafer } from './chartImage.js'
@@ -54,26 +54,23 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
 
   // Regnskabet i analyseform
   const analyseBoern = [new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Regnskabet i analyseform', spacing: { before: 320, after: 160 } })]
-  SECTIONS.forEach(sec => {
+  omformetRegnskab(dataset).forEach(afs => {
     const raekker = [new TableRow({
-      children: [celle(sec.title, { fed: true, skygge: true, bredde: 46 }), ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))]
+      children: [celle(afs.title, { fed: true, skygge: true, bredde: 46 }), ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))]
     })]
-    analyseLinjer(dataset, sec.id).forEach(({ felt, placerede }) => {
-      raekker.push(new TableRow({
-        children: [
-          celle(felt.label),
-          ...dataset.aar.map(y => celle(tal(withDerived(y.values)[felt.key], felt.unit === 'kr' ? 2 : 0), { hoejre: true }))
-        ]
-      }))
-      placerede.forEach(p => raekker.push(new TableRow({
-        children: [
-          celle(`    ${p.label}`, { color: '5A6570' }),
-          ...dataset.aar.map(y => celle(tal(y.poster?.[p.id], 0), { hoejre: true, color: '5A6570' }))
-        ]
-      })))
-    })
+    afs.raekker.forEach(r => raekker.push(new TableRow({
+      children: [celle(r.navn, { fed: r.erSum }), ...r.tal.map(v => celle(tal(v, 0), { hoejre: true, fed: r.erSum }))]
+    })))
     analyseBoern.push(tabel(raekker), new Paragraph({ text: '', spacing: { after: 160 } }))
   })
+  const oversigt = sammenlaegningsoversigt(dataset)
+  if (oversigt.length) {
+    analyseBoern.push(new Paragraph({ heading: HeadingLevel.HEADING_2, text: 'Sammenlagte poster', spacing: { before: 200, after: 120 } }))
+    oversigt.forEach(o => analyseBoern.push(new Paragraph({
+      children: [new TextRun({ text: o.navn, bold: true, size: 19 }), new TextRun({ text: ' = ' + o.dele.join(' + '), size: 19 })],
+      spacing: { after: 60 }
+    })))
+  }
 
   // Nøgletal område for område
   const nogletalBoern = [new Paragraph({ children: [new PageBreak()] }),

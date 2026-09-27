@@ -83,55 +83,22 @@ export function emptyDataset () {
     aar: [emptyYear('År 1'), emptyYear('År 2'), emptyYear('År 3')],
     primo: {},
     // Regnskabets egne poster ({ id, label, sektion, erSum }) i regnskabets
-    // rækkefølge, deres tal pr. år (aar[i].poster) og i primo, samt hvilken
-    // analysepost hver af dem er placeret på (postId -> felt).
+    // rækkefølge og deres tal pr. år (aar[i].poster) og i primo.
     poster: [],
     primoPoster: {},
-    placering: {}
+    // Den studerendes omformning af resultatopgørelsen: postrækkefølgen og
+    // sammenlægningerne ({ [id på posten, der blev trukket ind på]: { navn, dele: [id, …] } }).
+    raekkefoelge: [],
+    sammenlaegninger: {}
   }
 }
 
-/**
- * Analysepostens værdi er summen af de af regnskabets poster, der er
- * placeret på den — og tom, når ingen er. Primo tæller kun for balancen.
- */
-export function beregnAnalyse (dataset) {
-  const kopi = structuredClone(dataset)
-  const placering = kopi.placering || {}
-  const summer = (tal, felter) => {
-    const ud = {}
-    felter.forEach(key => { ud[key] = null })
-    Object.entries(placering).forEach(([postId, key]) => {
-      const v = tal?.[postId]
-      if (v == null || !(key in ud)) return
-      ud[key] = (ud[key] || 0) + v
-    })
-    return ud
-  }
-  const raa = FIELDS.filter(f => !f.derived).map(f => f.key)
-  kopi.aar.forEach(y => { y.values = summer(y.poster, raa) })
-  kopi.primo = Object.fromEntries(Object.entries(summer(kopi.primoPoster, raa.filter(k => PRIMO_FIELDS.includes(k)))).filter(([, v]) => v != null))
-  return kopi
-}
-
-/**
- * Analyseformens linjer i ét afsnit til eksport: linjer med et tal i mindst
- * ét år, hver med de af regnskabets poster, der er placeret på den.
- */
-export function analyseLinjer (dataset, sektion) {
-  const beregnet = dataset.aar.map(y => withDerived(y.values))
-  return FIELDS
-    .filter(f => f.section === sektion && beregnet.some(v => v[f.key] != null))
-    .map(felt => ({ felt, placerede: felt.derived ? [] : (dataset.poster || []).filter(p => dataset.placering?.[p.id] === felt.key) }))
-}
-
-// Regnskabsbegreber, der svarer direkte til én linje i analyseformen — i
-// prioriteret rækkefølge. Kun poster med et sådant entydigt modstykke
-// sættes på forhånd på en linje; alt andet placerer den studerende selv.
-const STANDARD_PLACERING = {
+// Hvilken post i analyseformen et regnskabsbegreb svarer til. Bruges kun i
+// baggrunden til nøgletallene — den studerende ser regnskabets egne poster.
+const ROLLER = {
   omsaetning: ['Revenue', 'SalesRevenue', 'RevenueFromContractsWithCustomers'],
   vareforbrug: ['CostOfSales', 'RawMaterialsAndConsumablesUsed', 'CostOfGoodsSold'],
-  personaleomkostninger: ['EmployeeBenefitsExpense', 'StaffCosts'],
+  personaleomkostninger: ['EmployeeBenefitsExpense', 'StaffCosts', 'WagesAndSalaries', 'Salaries', 'PensionCosts', 'PostemploymentBenefitExpense', 'OtherSocialSecurityContributions', 'SocialSecurityContributions', 'OtherEmployeeBenefitsExpense', 'OtherStaffCosts'],
   andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses'],
   afskrivninger: ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'DepreciationAmortisationExpense', 'DepreciationAndAmortisation'],
   finansielleIndtaegter: ['OtherFinanceIncome', 'FinanceIncome', 'FinancialIncome'],
@@ -149,48 +116,153 @@ const STANDARD_PLACERING = {
   langfristetGaeld: ['LongtermLiabilitiesOtherThanProvisions', 'NoncurrentLiabilities'],
   leverandoergaeld: ['ShorttermTradePayables', 'TradePayables'],
   andenKortfristetGaeld: ['OtherPayablesIncludingTaxPayablesLiabilitiesOtherThanProvisionsShortterm'],
-  pengestroemPrimaerDrift: ['CashFlowFromOperatingActivities', 'CashFlowsFromUsedInOperatingActivities']
+  pengestroemPrimaerDrift: ['CashFlowFromOperatingActivities', 'CashFlowsFromUsedInOperatingActivities'],
+
+  // Regnskabets egne summer. I resultatopgørelsen bruges de kun, når
+  // summen ikke kan regnes ud fra posterne (fx et klasse B-regnskab uden
+  // nettoomsætning); i balancen, der ikke omformes, bruges de altid.
+  bruttoresultat: ['GrossProfitLoss', 'GrossResult', 'GrossProfit'],
+  resultatPrimaerDrift: ['ProfitLossFromOrdinaryOperatingActivities', 'ProfitLossFromOperatingActivities'],
+  resultatFoerSkat: ['ProfitLossFromOrdinaryActivitiesBeforeTax', 'ProfitLossBeforeTax'],
+  aaretsResultat: ['ProfitLoss'],
+  anlaegsaktiver: ['NoncurrentAssets'],
+  omsaetningsaktiver: ['CurrentAssets'],
+  aktiverIAlt: ['Assets'],
+  kortfristetGaeld: ['ShorttermLiabilitiesOtherThanProvisions', 'CurrentLiabilities'],
+  passiverIAlt: ['LiabilitiesAndEquity', 'EquityAndLiabilities']
 }
+const ROLLE_FOR_BEGREB = new Map(Object.entries(ROLLER).flatMap(([key, begreber]) => begreber.map(b => [b.toLowerCase(), key])))
+const RESULTAT_SUMMER = ['bruttoresultat', 'resultatPrimaerDrift', 'resultatFoerSkat', 'aaretsResultat']
 
 // XBRL-posters id er "<afsnit>:<begreb>"; PDF-poster har i stedet et forslag.
 const begrebFor = p => (p.id.startsWith('pdf:') ? null : p.id.slice(p.id.indexOf(':') + 1).toLowerCase())
+const egenRolle = p => (begrebFor(p) ? ROLLE_FOR_BEGREB.get(begrebFor(p)) : p.forslag) || null
+
+export const postMap = dataset => new Map((dataset.poster || []).map(p => [p.id, p]))
+
+/** En posts rolle i nøgletallene: sin egen, ellers den første blandt de sammenlagte dele. */
+export function rolle (dataset, p, map = postMap(dataset)) {
+  const dele = dataset.sammenlaegninger?.[p.id]?.dele || []
+  return egenRolle(p) || dele.map(id => map.get(id)).filter(Boolean).map(egenRolle).find(Boolean) || null
+}
+
+export const postNavn = (dataset, p) => dataset.sammenlaegninger?.[p.id]?.navn ?? p.label
+
+/** En posts tal i ét år (eller primo): dens eget plus de sammenlagte deles. */
+export function postTal (dataset, p, tal) {
+  const ids = [p.id, ...(dataset.sammenlaegninger?.[p.id]?.dele || [])]
+  const fundne = ids.map(id => tal?.[id]).filter(v => v != null)
+  return fundne.length ? fundne.reduce((a, b) => a + b, 0) : null
+}
+
+/** De poster, der vises i et afsnit — i resultatopgørelsen efter omformningen. */
+export function synligePoster (dataset, sektion) {
+  const map = postMap(dataset)
+  if (sektion === 'resultat') return (dataset.raekkefoelge || []).map(id => map.get(id)).filter(Boolean)
+  return (dataset.poster || []).filter(p => p.sektion === sektion)
+}
 
 /**
- * Sætter nye poster på den linje, de svarer direkte til — men aldrig mere
- * end én post pr. linje, og aldrig på en linje, der allerede har poster.
- * Værktøjet lægger altså ikke selv poster sammen.
+ * Nøgletallenes grundlag: hver synlig post lægges til sin rolle. Summerne i
+ * resultatopgørelsen regnes ud fra posterne, så den studerendes omformning
+ * slår igennem; kun hvor det ikke kan lade sig gøre, bruges regnskabets egen
+ * sum. Balancen omformes ikke, så dens egne summer bruges direkte.
  */
-export function foreslaaPlacering (nyePoster, placering = {}) {
-  const ud = { ...placering }
-  const optaget = new Set(Object.values(ud))
-  FIELDS.forEach(f => {
-    if (f.derived || optaget.has(f.key)) return
-    const begreber = (STANDARD_PLACERING[f.key] || []).map(b => b.toLowerCase())
-    const kandidater = nyePoster.filter(p => !(p.id in ud))
-    const valgt = begreber.map(b => kandidater.find(p => begrebFor(p) === b)).find(Boolean) ||
-      kandidater.find(p => p.forslag === f.key)
-    if (valgt) { ud[valgt.id] = f.key; optaget.add(f.key) }
-  })
-  return ud
+export function beregnAnalyse (dataset) {
+  const kopi = structuredClone(dataset)
+  const map = postMap(kopi)
+  const synlige = REGNSKABSAFSNIT.flatMap(a => synligePoster(kopi, a.id))
+  const beregn = tal => {
+    const values = {}
+    FIELDS.forEach(f => { values[f.key] = null })
+    const rapporteret = {}
+    synlige.forEach(p => {
+      const v = postTal(kopi, p, tal)
+      const r = rolle(kopi, p, map)
+      if (v == null || !r) return
+      if (FIELD_MAP[r].derived) { if (rapporteret[r] == null) rapporteret[r] = v; return }
+      values[r] = (values[r] ?? 0) + v
+    })
+    Object.entries(rapporteret).forEach(([k, v]) => { if (!RESULTAT_SUMMER.includes(k)) values[k] = v })
+    RESULTAT_SUMMER.forEach(k => {
+      if (rapporteret[k] != null && withDerived(values)[k] == null) values[k] = rapporteret[k]
+    })
+    return values
+  }
+  kopi.aar.forEach(y => { y.values = beregn(y.poster) })
+  const primo = beregn(kopi.primoPoster)
+  kopi.primo = Object.fromEntries(PRIMO_FIELDS.filter(k => primo[k] != null).map(k => [k, primo[k]]))
+  return kopi
 }
 
-/** Flytter alle poster fra én linje til en anden (eller fjerner dem med null). */
-export function flytLinje (dataset, fraKey, tilKey) {
-  const placering = { ...(dataset.placering || {}) }
-  Object.entries(placering).forEach(([id, key]) => {
-    if (key !== fraKey) return
-    if (tilKey) placering[id] = tilKey
-    else delete placering[id]
-  })
-  return beregnAnalyse({ ...dataset, placering })
+/** Trækker kilden ind på målet: tallene lægges sammen, og målet får det nye navn. */
+export function laegSammen (dataset, kildeId, maalId, navn) {
+  const sam = { ...(dataset.sammenlaegninger || {}) }
+  const dele = [...(sam[maalId]?.dele || []), kildeId, ...(sam[kildeId]?.dele || [])]
+  delete sam[kildeId]
+  sam[maalId] = { navn, dele }
+  return beregnAnalyse({ ...dataset, sammenlaegninger: sam, raekkefoelge: dataset.raekkefoelge.filter(id => id !== kildeId) })
 }
 
-/** Placerer en af regnskabets poster på en analysepost (eller fjerner den med null). */
-export function placerPost (dataset, postId, key) {
-  const placering = { ...(dataset.placering || {}) }
-  if (key) placering[postId] = key
-  else delete placering[postId]
-  return beregnAnalyse({ ...dataset, placering })
+/** Skiller en sammenlagt post ad igen; delene sættes ind lige efter den. */
+export function fortrydSammenlaegning (dataset, maalId) {
+  const sam = { ...(dataset.sammenlaegninger || {}) }
+  const dele = sam[maalId]?.dele || []
+  delete sam[maalId]
+  const raekkefoelge = [...dataset.raekkefoelge]
+  raekkefoelge.splice(raekkefoelge.indexOf(maalId) + 1, 0, ...dele)
+  return beregnAnalyse({ ...dataset, sammenlaegninger: sam, raekkefoelge })
+}
+
+/** Flytter en post i resultatopgørelsen til lige før eller efter en anden. */
+export function flytPost (dataset, id, naboId, efter) {
+  const raekkefoelge = dataset.raekkefoelge.filter(x => x !== id)
+  const i = raekkefoelge.indexOf(naboId)
+  raekkefoelge.splice(efter ? i + 1 : i, 0, id)
+  return { ...dataset, raekkefoelge }
+}
+
+const lilleBegyndelse = t => (/^\p{Lu}\p{Ll}/u.test(t) ? t[0].toLocaleLowerCase('da') + t.slice(1) : t)
+
+/** Navneforslag til en sammenlagt post — det første er det bedste bud. */
+export function navneforslag (dataset, kildeId, maalId) {
+  const map = postMap(dataset)
+  const maal = map.get(maalId)
+  const kilde = map.get(kildeId)
+  const mNavn = postNavn(dataset, maal)
+  const kNavn = postNavn(dataset, kilde)
+  const alle = [maal, kilde, ...[maalId, kildeId].flatMap(id => dataset.sammenlaegninger?.[id]?.dele || []).map(id => map.get(id))].filter(Boolean)
+  const forslag = []
+  if (alle.every(p => egenRolle(p) === 'personaleomkostninger')) forslag.push('Personaleomkostninger')
+  forslag.push(`${mNavn} og ${lilleBegyndelse(kNavn)}`)
+  forslag.push(`${mNavn} (inkl. ${lilleBegyndelse(kNavn)})`)
+  return [...new Set(forslag)]
+}
+
+/** Det omformede regnskab til eksport: afsnit med de poster, der vises. */
+export function omformetRegnskab (dataset) {
+  return REGNSKABSAFSNIT
+    .map(a => ({
+      ...a,
+      raekker: synligePoster(dataset, a.id).map(p => ({
+        navn: postNavn(dataset, p),
+        erSum: p.erSum,
+        tal: dataset.aar.map(y => postTal(dataset, p, y.poster))
+      })).filter(r => r.tal.some(v => v != null))
+    }))
+    .filter(a => a.raekker.length)
+}
+
+/** Oversigten over sammenlægninger: det nye navn og de poster, det består af. */
+export function sammenlaegningsoversigt (dataset) {
+  const map = postMap(dataset)
+  return (dataset.raekkefoelge || [])
+    .filter(id => dataset.sammenlaegninger?.[id])
+    .map(id => ({
+      id,
+      navn: dataset.sammenlaegninger[id].navn,
+      dele: [id, ...dataset.sammenlaegninger[id].dele].map(d => map.get(d)?.label).filter(Boolean)
+    }))
 }
 
 // Afledte poster udfyldes kun, hvor der ikke allerede står et tal.

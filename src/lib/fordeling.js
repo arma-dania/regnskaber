@@ -1,4 +1,4 @@
-import { emptyYear, beregnAnalyse, foreslaaPlacering } from './model.js'
+import { emptyYear, beregnAnalyse } from './model.js'
 
 const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
 
@@ -111,20 +111,28 @@ export function fordelKolonner (kilder) {
 
 /**
  * Lægger fordelingen ind i datasættet uden at røre virksomhedsnavn og enhed.
- * Hvert års tal erstattes helt af den nye fordeling. Placeringerne i Omform
- * bevares for de poster, der stadig findes (fx når endnu et regnskab fra
- * samme virksomhed indlæses) — de studerendes omformning skal ikke gå tabt.
- * Kun helt nye poster får en standardplacering.
+ * Hvert års tal erstattes helt af den nye fordeling. Den studerendes
+ * omformning (rækkefølge og sammenlægninger) bevares for de poster, der
+ * stadig findes (fx når endnu et regnskab fra samme virksomhed indlæses);
+ * nye poster i resultatopgørelsen kommer sidst.
  */
 export function anvendFordeling (dataset, fordeling) {
   const kopi = structuredClone(dataset)
   const ids = new Set(fordeling.poster.map(p => p.id))
-  const kendte = new Set((kopi.poster || []).map(p => p.id))
   kopi.poster = fordeling.poster
-  kopi.placering = foreslaaPlacering(
-    fordeling.poster.filter(p => !kendte.has(p.id)),
-    Object.fromEntries(Object.entries(kopi.placering || {}).filter(([id]) => ids.has(id)))
-  )
+
+  const sam = {}
+  Object.entries(kopi.sammenlaegninger || {}).forEach(([id, s]) => {
+    if (!ids.has(id)) return
+    const dele = s.dele.filter(d => ids.has(d))
+    if (dele.length) sam[id] = { ...s, dele }
+  })
+  kopi.sammenlaegninger = sam
+  const opslugte = new Set(Object.values(sam).flatMap(s => s.dele))
+  const resultat = fordeling.poster.filter(p => p.sektion === 'resultat' && !opslugte.has(p.id)).map(p => p.id)
+  const beholdt = (kopi.raekkefoelge || []).filter(id => resultat.includes(id))
+  kopi.raekkefoelge = [...beholdt, ...resultat.filter(id => !beholdt.includes(id))]
+
   kopi.aar.forEach((y, i) => {
     const a = fordeling.aar[i]
     if (a) {

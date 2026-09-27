@@ -7,11 +7,11 @@ import { NOGLETAL, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi } from
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
 
-// v3: regnskaberne indlæses nu med deres egne poster, og omformningen
-// gemmes som de studerendes placering af dem. Data gemt i et ældre format
-// ignoreres ved at skifte nøgle, så ingen starter med et skema i det gamle.
-const NOEGLE = 'regnskabsanalyse-data-v3'
-const NOEGLE_FUND = 'regnskabsanalyse-fund-v3'
+// v4: omformningen gemmes som postrækkefølge og sammenlægninger af
+// regnskabets egne poster. Data gemt i et ældre format ignoreres ved at
+// skifte nøgle, så ingen starter med et skema i det gamle.
+const NOEGLE = 'regnskabsanalyse-data-v4'
+const NOEGLE_FUND = 'regnskabsanalyse-fund-v4'
 
 const TRIN = [
   { id: 0, navn: 'Velkommen' },
@@ -250,7 +250,7 @@ const VELKOMST_TRIN = [
   },
   {
     navn: 'Analyseform',
-    tekst: 'Regnskabets poster står på forhånd på den linje i analyseformen, de svarer direkte til. Du flytter eller lægger selv poster sammen, hvor du finder det nødvendigt, og tager stilling til de poster, der ikke har en oplagt plads.'
+    tekst: 'Se regnskabet, præcis som det er indlæst, og omform resultatopgørelsen til analysebrug: flyt poster eller læg dem sammen, hvor du finder det nødvendigt. Appen foreslår et navn til de sammenlagte poster.'
   },
   {
     navn: 'Nøgletal og grafer',
