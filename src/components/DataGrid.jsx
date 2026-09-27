@@ -1,44 +1,44 @@
 import { useState } from 'react'
-import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, PERSONALE_KOMPONENTER, withDerived, validate, laegPosterSammen, visFelt } from '../lib/model.js'
+import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, REGNSKABSAFSNIT, withDerived, validate, placerPost } from '../lib/model.js'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
 
-const postNavn = (dataset, key) => dataset.posterLabels?.[key] ?? FIELD_MAP[key]?.label ?? key
-
 export default function DataGrid ({ dataset, setDataset }) {
-  const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primo || {}).length > 0)
-  const [dragKilde, setDragKilde] = useState(null)
-  const [dragOverMaal, setDragOverMaal] = useState(null)
-  const [pendingMerge, setPendingMerge] = useState(null)
+  const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primoPoster || {}).length > 0)
+  const [traekker, setTraekker] = useState(null)
+  const [over, setOver] = useState(null)
+  const [valgt, setValgt] = useState(null)
   const noter = validate(dataset)
 
-  const kanFlyttes = f => !f.derived
+  const poster = dataset.poster || []
+  const placering = dataset.placering || {}
+  const antalPlaceret = poster.filter(p => placering[p.id]).length
+  const nyeste = [...dataset.aar].reverse().find(y => Object.keys(y.poster || {}).length) || null
+  const beregnede = dataset.aar.map(y => withDerived(y.values))
+  const primoBeregnet = withDerived(dataset.primo || {})
 
-  const foreslaSammenlaegning = (kildeKey, maalKey) => {
-    if (!kildeKey || kildeKey === maalKey) return
-    const kilde = FIELD_MAP[kildeKey]
-    const maal = FIELD_MAP[maalKey]
-    if (!kilde || !maal || kilde.derived || maal.derived || kilde.section !== maal.section) return
-    // Lønkomponenterne (løn, pension, …) er en kendt gruppe under den ene,
-    // rigtige post "Personaleomkostninger" — foreslå den direkte i stedet
-    // for at kæde navnet længere for hver sammenlægning (fx "... (inkl. X)
-    // (inkl. Y)"), uanset hvilken retning de trækkes i.
-    const erLoenkomponentGruppe = PERSONALE_KOMPONENTER.includes(kildeKey) &&
-      (PERSONALE_KOMPONENTER.includes(maalKey) || maalKey === 'personaleomkostninger')
-    setPendingMerge({
-      kildeKey,
-      maalKey,
-      foreslaetNavn: erLoenkomponentGruppe
-        ? FIELD_MAP.personaleomkostninger.label
-        : `${postNavn(dataset, maalKey)} (inkl. ${postNavn(dataset, kildeKey).toLowerCase()})`
-    })
-  }
+  const placer = (postId, key) => setDataset(d => placerPost(d, postId, key))
 
-  const bekraeftSammenlaegning = () => {
-    if (!pendingMerge) return
-    setDataset(d => laegPosterSammen(d, pendingMerge.kildeKey, pendingMerge.maalKey, pendingMerge.foreslaetNavn.trim() || postNavn(d, pendingMerge.maalKey)))
-    setPendingMerge(null)
-  }
+  const traekProps = p => ({
+    draggable: true,
+    onDragStart: e => { e.dataTransfer.setData('text/plain', p.id); e.dataTransfer.effectAllowed = 'move'; setTraekker(p.id) },
+    onDragEnd: () => { setTraekker(null); setOver(null) }
+  })
+
+  // 'regnskab' = listen over regnskabets poster; at slippe dér fjerner placeringen.
+  const modtagProps = key => ({
+    onDragOver: e => { if (traekker) { e.preventDefault(); setOver(key) } },
+    onDragLeave: () => setOver(o => (o === key ? null : o)),
+    onDrop: e => {
+      e.preventDefault()
+      const id = traekker || e.dataTransfer.getData('text/plain')
+      if (id) placer(id, key === 'regnskab' ? null : key)
+      setTraekker(null); setOver(null)
+    }
+  })
+
+  const vaelg = id => setValgt(v => (v === id ? null : id))
+  const placerValgt = key => { if (valgt) { placer(valgt, key); setValgt(null) } }
 
   const saetAarLabel = (i, tekst) => setDataset(d => {
     const kopi = structuredClone(d)
@@ -46,46 +46,23 @@ export default function DataGrid ({ dataset, setDataset }) {
     return kopi
   })
 
-  const beregnede = dataset.aar.map(y => withDerived(y.values, y.manual))
+  const antalKolonner = 1 + (visPrimo ? 1 : 0) + dataset.aar.length
 
   return (
     <>
       <h2 className="sektion-titel">Regnskabet i analyseform</h2>
       <p className="sektion-intro">
-        Her ser du de indlæste regnskaber omregnet til de faste poster, som de 28 nøgletal
-        beregnes ud fra. Tallene kan ikke rettes her — de kommer udelukkende fra det, du har
-        indlæst under "Indlæs regnskaber". Er et tal forkert, skal det rettes i selve importen.
+        Her omformer du selv regnskabet til analysebrug. Til venstre står regnskabets egne
+        poster, præcis som de er indlæst. Træk hver post over på den linje i analyseformen, hvor
+        den hører hjemme — eller klik på posten og derefter på linjen. Lægger du flere poster på
+        samme linje, lægges de sammen. En placeret post kan trækkes videre til en anden linje
+        eller tilbage til listen.
       </p>
       <p className="sektion-intro">
-        <strong>Kursiveret gråt</strong> er beregnet ud fra posterne ovenfor og opdateres
-        automatisk. <strong>Okker</strong> er en post, regnskabet selv oplyser direkte, og
-        bliver derfor aldrig regnet om — fx er bruttofortjeneste i et klasse B-regnskab ikke
-        altid omsætning minus vareforbrug.
+        Linjer mærket <strong>beregnes</strong> (grå kursiv) udregnes automatisk ud fra de andre
+        linjer. Regnskabets egne sumposter står med fed — placér enten summen eller de poster,
+        den består af, ikke begge. Tallene kan ikke rettes her; de kommer fra de indlæste regnskaber.
       </p>
-      <p className="sektion-intro">
-        Oplyser regnskabet en post i flere enkeltdele (fx løn og pension hver for sig), kan du
-        trække dem ind over hinanden for at lægge dem sammen til den rigtige, samlede post —
-        poster kan kun lægges sammen inden for samme afsnit.
-      </p>
-
-      {pendingMerge && (
-        <div className="kort sammenlaegning-flydende" style={{ borderColor: 'var(--petrol)' }}>
-          <h3>Læg poster sammen?</h3>
-          <p className="hjaelp">
-            "{postNavn(dataset, pendingMerge.kildeKey)}" lægges sammen med
-            "{postNavn(dataset, pendingMerge.maalKey)}" i alle år. "{postNavn(dataset, pendingMerge.kildeKey)}" tømmes.
-          </p>
-          <label className="felt" htmlFor="nyt-postnavn">Navn på den sammenlagte post</label>
-          <input
-            id="nyt-postnavn" type="text" value={pendingMerge.foreslaetNavn}
-            onChange={e => setPendingMerge(p => ({ ...p, foreslaetNavn: e.target.value }))}
-          />
-          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-            <button className="knap primaer" onClick={bekraeftSammenlaegning}>Bekræft sammenlægning</button>
-            <button className="knap lys" onClick={() => setPendingMerge(null)}>Annullér</button>
-          </div>
-        </div>
-      )}
 
       <div className="kort">
         <div className="gitter-2">
@@ -122,73 +99,125 @@ export default function DataGrid ({ dataset, setDataset }) {
         </div>
       ))}
 
-      <div className="kort">
-        <div className="tabel-omslag">
-          <table className="data">
-            <thead>
-              <tr>
-                <th style={{ minWidth: 260 }}>Post</th>
-                {visPrimo && <th className="num" style={{ width: 130 }}>Primo</th>}
-                {dataset.aar.map((y, i) => (
-                  <th key={i} className="num" style={{ width: 150 }}>
-                    <input
-                      type="text" value={y.label} onChange={e => saetAarLabel(i, e.target.value)}
-                      aria-label={`Navn på år ${i + 1}`} style={{ textAlign: 'right' }}
-                    />
-                  </th>
+      {!poster.length && (
+        <div className="besked advarsel">Der er ikke indlæst nogen regnskaber endnu. Indlæs dem under "Indlæs regnskaber".</div>
+      )}
+
+      <div className="omform">
+        <div className={'kort omform-poster' + (over === 'regnskab' ? ' traek-over' : '')} {...modtagProps('regnskab')}>
+          <h3>Regnskabets poster</h3>
+          <p className="hjaelp">{antalPlaceret} af {poster.length} placeret{nyeste?.label ? ` · tal for ${nyeste.label}` : ''}</p>
+          {REGNSKABSAFSNIT.map(afs => {
+            const liste = poster.filter(p => p.sektion === afs.id)
+            if (!liste.length) return null
+            return (
+              <div key={afs.id} className="omform-afsnit">
+                <div className="omform-afsnit-titel">{afs.title}</div>
+                {liste.map(p => (
+                  <div
+                    key={p.id} role="button" tabIndex={0} aria-pressed={valgt === p.id}
+                    className={'regnskabspost' + (p.erSum ? ' sum' : '') + (placering[p.id] ? ' placeret' : '') + (valgt === p.id ? ' valgt' : '')}
+                    title={placering[p.id] ? `Placeret på ${FIELD_MAP[placering[p.id]]?.label}` : 'Træk til en linje i analyseformen'}
+                    onClick={() => vaelg(p.id)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); vaelg(p.id) } }}
+                    {...traekProps(p)}
+                  >
+                    <span className="regnskabspost-navn">
+                      {p.label}
+                      {placering[p.id] && <span className="regnskabspost-placering">→ {FIELD_MAP[placering[p.id]]?.label}</span>}
+                    </span>
+                    <span className="regnskabspost-tal">{visTal(nyeste?.poster?.[p.id])}</span>
+                  </div>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {SECTIONS.map(sec => (
-                <Fragmenter key={sec.id}>
-                  <tr className="gruppe"><td colSpan={1 + (visPrimo ? 1 : 0) + dataset.aar.length}>{sec.title}</td></tr>
-                  {FIELDS.filter(f => f.section === sec.id && visFelt(f, dataset)).map(f => (
-                    <tr
-                      key={f.key}
-                      className={(f.derived ? 'sum' : '') + (dragOverMaal === f.key ? ' traek-over' : '')}
-                      draggable={kanFlyttes(f)}
-                      onDragStart={kanFlyttes(f) ? e => { setDragKilde(f.key); e.dataTransfer.effectAllowed = 'move' } : undefined}
-                      onDragEnd={() => { setDragKilde(null); setDragOverMaal(null) }}
-                      onDragOver={kanFlyttes(f) ? e => { if (dragKilde && dragKilde !== f.key) { e.preventDefault(); setDragOverMaal(f.key) } } : undefined}
-                      onDragLeave={() => setDragOverMaal(m => (m === f.key ? null : m))}
-                      onDrop={kanFlyttes(f) ? e => { e.preventDefault(); foreslaSammenlaegning(dragKilde, f.key); setDragKilde(null); setDragOverMaal(null) } : undefined}
-                    >
-                      <td>
-                        <span className={'postnavn' + (kanFlyttes(f) ? ' traekbar' : '')} title={kanFlyttes(f) ? 'Træk til en anden post i samme afsnit for at flytte eller lægge sammen' : undefined}>
-                          {postNavn(dataset, f.key)}
-                          {f.derived && <span className="mærkat" title={'Beregnes som: ' + f.derived}>beregnes</span>}
-                        </span>
-                      </td>
-                      {visPrimo && (
-                        <td className="num">
-                          {PRIMO_FIELDS.includes(f.key)
-                            ? <span className="tal-vaerdi" aria-label={`${postNavn(dataset, f.key)}, primo`}>
-                                {visTal(dataset.primo?.[f.key])}
-                              </span>
-                            : <span style={{ color: 'var(--linje)' }}>·</span>}
-                        </td>
-                      )}
-                      {dataset.aar.map((y, i) => {
-                        const eksplicit = y.values[f.key] != null
-                        const vaerdi = eksplicit ? y.values[f.key] : beregnede[i][f.key]
-                        return (
-                          <td key={i} className="num">
-                            <span
-                              className={'tal-vaerdi' + (f.derived ? (eksplicit ? ' manuel' : ' afledt') : '')}
-                              aria-label={`${postNavn(dataset, f.key)}, ${y.label || 'år ' + (i + 1)}`}
-                            >
-                              {visTal(vaerdi)}
-                            </span>
-                          </td>
-                        )
-                      })}
-                    </tr>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="kort">
+          {valgt && (
+            <div className="besked">
+              Klik på den linje i analyseformen, hvor "{poster.find(p => p.id === valgt)?.label}" skal placeres.
+              {placering[valgt] && (
+                <button className="knap lys" style={{ padding: '2px 8px', fontSize: 12, marginLeft: 8 }} onClick={() => { placer(valgt, null); setValgt(null) }}>
+                  Fjern placering
+                </button>
+              )}
+            </div>
+          )}
+          <div className="tabel-omslag">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th style={{ minWidth: 240 }}>Analyseform</th>
+                  {visPrimo && <th className="num" style={{ width: 120 }}>Primo</th>}
+                  {dataset.aar.map((y, i) => (
+                    <th key={i} className="num" style={{ width: 140 }}>
+                      <input
+                        type="text" value={y.label} onChange={e => saetAarLabel(i, e.target.value)}
+                        aria-label={`Navn på år ${i + 1}`} style={{ textAlign: 'right' }}
+                      />
+                    </th>
                   ))}
-                </Fragmenter>
-              ))}
-            </tbody>
-          </table>
+                </tr>
+              </thead>
+              <tbody>
+                {SECTIONS.map(sec => (
+                  <Fragmenter key={sec.id}>
+                    <tr className="gruppe"><td colSpan={antalKolonner}>{sec.title}</td></tr>
+                    {FIELDS.filter(f => f.section === sec.id).map(f => {
+                      const placerede = f.derived ? [] : poster.filter(p => placering[p.id] === f.key)
+                      return (
+                        <Fragmenter key={f.key}>
+                          <tr
+                            className={(f.derived ? 'sum' : 'modtager') + (over === f.key ? ' traek-over' : '') + (valgt && !f.derived ? ' kan-modtage' : '')}
+                            {...(f.derived ? {} : modtagProps(f.key))}
+                            onClick={f.derived ? undefined : () => placerValgt(f.key)}
+                          >
+                            <td>
+                              <span className="postnavn">
+                                {f.label}
+                                {f.derived && <span className="mærkat" title={'Beregnes som: ' + f.derived}>beregnes</span>}
+                              </span>
+                            </td>
+                            {visPrimo && (
+                              <td className="num">
+                                {PRIMO_FIELDS.includes(f.key)
+                                  ? <span className={'tal-vaerdi' + (f.derived ? ' afledt' : '')}>{visTal(primoBeregnet[f.key])}</span>
+                                  : <span style={{ color: 'var(--linje)' }}>·</span>}
+                              </td>
+                            )}
+                            {dataset.aar.map((y, i) => (
+                              <td key={i} className="num">
+                                <span className={'tal-vaerdi' + (f.derived ? ' afledt' : '')} aria-label={`${f.label}, ${y.label || 'år ' + (i + 1)}`}>
+                                  {visTal(beregnede[i][f.key])}
+                                </span>
+                              </td>
+                            ))}
+                          </tr>
+                          {placerede.map(p => (
+                            <tr key={p.id} className={'placeret-post' + (valgt === p.id ? ' valgt' : '')} {...traekProps(p)}>
+                              <td>
+                                <span className="postnavn traekbar" onClick={() => vaelg(p.id)}>
+                                  ↳ {p.label}
+                                  <button
+                                    className="fjern-placering" aria-label={`Fjern ${p.label} fra ${f.label}`}
+                                    title="Fjern placering" onClick={e => { e.stopPropagation(); placer(p.id, null) }}
+                                  >×</button>
+                                </span>
+                              </td>
+                              {visPrimo && <td className="num">{PRIMO_FIELDS.includes(f.key) ? visTal(dataset.primoPoster?.[p.id]) : ''}</td>}
+                              {dataset.aar.map((y, i) => <td key={i} className="num">{visTal(y.poster?.[p.id])}</td>)}
+                            </tr>
+                          ))}
+                        </Fragmenter>
+                      )
+                    })}
+                  </Fragmenter>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </>

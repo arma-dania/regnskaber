@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import { FIELD_MAP } from './model.js'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
@@ -96,8 +97,11 @@ export async function importerPdf (file) {
   const helTekst = alleLinjer.join('\n')
 
   const kolonner = [{}, {}]
-  const fundne = []
+  const poster = []
 
+  // Hver genkendt linje bliver en post med linjens eget navn, i den
+  // rækkefølge den står i PDF'en. Mønstrene bruges kun til at finde
+  // regnskabslinjerne, ikke til at placere dem i analyseformen.
   alleLinjer.forEach(linje => {
     for (const [key, patterns] of MOENSTRE) {
       const label = linje.replace(/\s+\(?-?[\d.,()\s]+$/, '').trim()
@@ -109,10 +113,13 @@ export async function importerPdf (file) {
         .filter(n => !(Number.isInteger(n) && n >= 1990 && n <= 2100))
       if (!tal.length) continue
       const brugbare = tal.length > 2 ? tal.slice(-2) : tal
-      if (kolonner[0][key] == null) {
-        kolonner[0][key] = brugbare[0]
-        if (brugbare[1] != null) kolonner[1][key] = brugbare[1]
-        fundne.push({ key, linje })
+      const sektion = SEKTION[FIELD_MAP[key].section]
+      const id = `pdf:${sektion}:${label.toLowerCase()}`
+      if (kolonner[0][id] == null) {
+        const fortegn = POSITIVE.includes(key) ? Math.abs : v => v
+        kolonner[0][id] = fortegn(brugbare[0])
+        if (brugbare[1] != null) kolonner[1][id] = fortegn(brugbare[1])
+        poster.push({ id, label: label || FIELD_MAP[key].label, sektion })
       }
       break
     }
@@ -127,22 +134,16 @@ export async function importerPdf (file) {
     virksomhed: navn,
     cvr: cvrCifre.length === 8 ? cvrCifre : null,
     enhed: gaetEnhed(helTekst),
+    poster,
     kolonner: [
-      { navn: aarstal[0] ? String(aarstal[0]) : 'Regnskabsår', values: normaliser(kolonner[0]) },
-      { navn: aarstal[1] ? String(aarstal[1]) : 'Sammenligningsår', values: normaliser(kolonner[1]) }
-    ].filter(k => Object.keys(k.values).length > 0),
-    antalFundne: fundne.length,
-    linjer: alleLinjer
+      { navn: aarstal[0] ? String(aarstal[0]) : 'Regnskabsår', values: kolonner[0] },
+      { navn: aarstal[1] ? String(aarstal[1]) : 'Sammenligningsår', values: kolonner[1] }
+    ].filter(k => Object.keys(k.values).length > 0)
   }
 }
 
-// Omkostninger står ofte med minus i PDF'en, men skal indtastes positivt.
+// Omkostninger står ofte med minus i PDF'en, men i XBRL som positive tal —
+// PDF-tallene gøres ens med XBRL-tallene.
 const POSITIVE = ['vareforbrug', 'personaleomkostninger', 'andreEksterne', 'afskrivninger', 'finansielleOmkostninger', 'skat']
 
-function normaliser (obj) {
-  const ud = {}
-  Object.entries(obj).forEach(([k, v]) => {
-    ud[k] = POSITIVE.includes(k) ? Math.abs(v) : v
-  })
-  return ud
-}
+const SEKTION = { resultat: 'resultat', aktiver: 'aktiver', passiver: 'passiver', ovrigt: 'pengestroem' }
