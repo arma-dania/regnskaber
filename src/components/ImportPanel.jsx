@@ -2,9 +2,9 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import { importerPdf } from '../lib/pdfImport.js'
 import { importerIxbrlLink, importerXbrlFil, soegRegnskaber, diagnostikTekst } from '../lib/ixbrlImport.js'
 import { fordelKolonner, anvendFordeling } from '../lib/fordeling.js'
-import { REGNSKABSAFSNIT, emptyDataset } from '../lib/model.js'
+import { REGNSKABSAFSNIT, emptyDataset, visningsfaktor } from '../lib/model.js'
 
-const fmt = n => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 }).format(n))
+const fmt = (n, enhed) => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: /mio/.test(enhed || '') ? 1 : 0 }).format(n))
 
 const normaliserNavn = navn => (navn || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
 
@@ -57,7 +57,8 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
     if (erstat || andenVirksomhed || fund.length === 0) {
       const tom = emptyDataset()
       setFund(nye)
-      setDataset({ ...tom, virksomhed: navn, enhed: nye.find(n => n.enhed)?.enhed || tom.enhed })
+      const grundenhed = nye.find(n => n.enhed)?.enhed || tom.enhed
+      setDataset({ ...tom, virksomhed: navn, grundenhed, enhed: nye.find(n => n.visEnhed)?.visEnhed || grundenhed })
     } else {
       setFund(f => [...f, ...nye])
       setDataset(d => ({ ...d, virksomhed: d.virksomhed || navn }))
@@ -228,8 +229,16 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
 
       {traf && traf.length > 0 && (
         <div className="kort">
-          <h3>Offentliggjorte årsrapporter</h3>
-          <p className="hjaelp">Vælg de tre nyeste, eller hent en enkelt.</p>
+          <div className="kort-top">
+            <div>
+              <h3>Offentliggjorte årsrapporter</h3>
+              <p className="hjaelp">Vælg de tre nyeste, eller hent en enkelt.</p>
+            </div>
+            <button className="knap primaer" disabled={arbejder}
+              onClick={() => hentFraTraef(traf.filter(r => r.xbrl).slice(0, 3), { erstat: true })}>
+              Hent de tre nyeste med XBRL
+            </button>
+          </div>
           <div className="tabel-omslag">
             <table className="data">
               <thead>
@@ -260,14 +269,10 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
               </tbody>
             </table>
           </div>
-          <button className="knap primaer" style={{ marginTop: 12 }} disabled={arbejder}
-            onClick={() => hentFraTraef(traf.filter(r => r.xbrl).slice(0, 3), { erstat: true })}>
-            Hent de tre nyeste med XBRL
-          </button>
         </div>
       )}
 
-      {fordeling && <Fordelingskort fordeling={fordeling} gaaTilTrin={gaaTilTrin} />}
+      {fordeling && <Fordelingskort fordeling={fordeling} gaaTilTrin={gaaTilTrin} faktor={visningsfaktor(dataset)} enhed={dataset.enhed} />}
 
       {fund.length > 0 && !fordeling && (
         <div className="besked advarsel">
@@ -280,7 +285,7 @@ export default function ImportPanel ({ dataset, setDataset, gaaTilTrin, fund, se
   )
 }
 
-function Fordelingskort ({ fordeling, gaaTilTrin }) {
+function Fordelingskort ({ fordeling, gaaTilTrin, faktor, enhed }) {
   const { poster, aar, primoAar, primo, advarsler } = fordeling
   const antalPrimo = Object.keys(primo || {}).length
 
@@ -292,7 +297,7 @@ function Fordelingskort ({ fordeling, gaaTilTrin }) {
   return (
     <div className="kort" style={{ borderColor: 'var(--petrol)' }}>
       <h3>Sådan fordeles årene</h3>
-      <p className="hjaelp">Regnskabernes poster og tal, præcis som de står i regnskaberne. I Analyseform omformer du selv resultatopgørelsen til analysebrug.</p>
+      <p className="hjaelp">Regnskabernes poster og tal, præcis som de står i regnskaberne. Beløb i {enhed.replace(/\.$/, '')}. I Analyseform omformer du selv resultatopgørelsen til analysebrug.</p>
 
       <div className="tidslinje">
         {primoAar
@@ -337,7 +342,7 @@ function Fordelingskort ({ fordeling, gaaTilTrin }) {
                   {raekker.map(p => (
                     <tr key={p.id} className={p.erSum ? 'sum' : ''}>
                       <td>{p.label}</td>
-                      {kolonner.map((k, i) => <td key={i} className="num">{fmt(k.values[p.id])}</td>)}
+                      {kolonner.map((k, i) => <td key={i} className="num">{fmt(k.values[p.id] == null ? null : k.values[p.id] * faktor, enhed)}</td>)}
                     </tr>
                   ))}
                 </Fragmenter>

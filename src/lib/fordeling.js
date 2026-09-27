@@ -132,6 +132,7 @@ export function anvendFordeling (dataset, fordeling) {
   const resultat = fordeling.poster.filter(p => p.sektion === 'resultat' && !opslugte.has(p.id)).map(p => p.id)
   const beholdt = (kopi.raekkefoelge || []).filter(id => resultat.includes(id))
   kopi.raekkefoelge = [...beholdt, ...resultat.filter(id => !beholdt.includes(id))]
+  kopi.flyttede = (kopi.flyttede || []).filter(id => kopi.raekkefoelge.includes(id))
 
   kopi.aar.forEach((y, i) => {
     const a = fordeling.aar[i]

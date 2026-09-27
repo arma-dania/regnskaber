@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { omformetRegnskab, sammenlaegningsoversigt } from './model.js'
+import { omformetRegnskab, sammenlaegningsoversigt, flytningsoversigt } from './model.js'
 import { NOGLETAL, OMRAADER, beregnAlle } from './nogletal.js'
 
 const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100)
@@ -21,6 +21,11 @@ export function byggeArbejdsbog (dataset) {
   if (oversigt.length) {
     analyse.push(['SAMMENLAGTE POSTER'])
     oversigt.forEach(o => analyse.push([o.navn, o.dele.join(' + ')]))
+  }
+  const flytninger = flytningsoversigt(dataset)
+  if (flytninger.length) {
+    analyse.push([], ['FLYTTEDE POSTER'])
+    flytninger.forEach(f => analyse.push([f.navn, f.plads]))
   }
   const ws1 = XLSX.utils.aoa_to_sheet(analyse)
   ws1['!cols'] = [{ wch: 46 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]

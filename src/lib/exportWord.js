@@ -3,7 +3,7 @@ import {
   Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, PageBreak
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { omformetRegnskab, sammenlaegningsoversigt } from './model.js'
+import { omformetRegnskab, sammenlaegningsoversigt, flytningsoversigt } from './model.js'
 import { NOGLETAL, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
 import { filnavn } from './exportExcel.js'
 import { hentAlleGrafer } from './chartImage.js'
@@ -68,6 +68,14 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
     analyseBoern.push(new Paragraph({ heading: HeadingLevel.HEADING_2, text: 'Sammenlagte poster', spacing: { before: 200, after: 120 } }))
     oversigt.forEach(o => analyseBoern.push(new Paragraph({
       children: [new TextRun({ text: o.navn, bold: true, size: 19 }), new TextRun({ text: ' = ' + o.dele.join(' + '), size: 19 })],
+      spacing: { after: 60 }
+    })))
+  }
+  const flytninger = flytningsoversigt(dataset)
+  if (flytninger.length) {
+    analyseBoern.push(new Paragraph({ heading: HeadingLevel.HEADING_2, text: 'Flyttede poster', spacing: { before: 200, after: 120 } }))
+    flytninger.forEach(f => analyseBoern.push(new Paragraph({
+      children: [new TextRun({ text: f.navn, bold: true, size: 19 }), new TextRun({ text: ' ' + f.plads, size: 19 })],
       spacing: { after: 60 }
     })))
   }
