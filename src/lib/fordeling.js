@@ -1,4 +1,4 @@
-import { emptyYear, beregnAnalyse } from './model.js'
+import { emptyYear, beregnAnalyse, foreslaaPlacering } from './model.js'
 
 const erAarstal = navn => /^(19|20)\d{2}$/.test(String(navn).trim())
 
@@ -114,12 +114,17 @@ export function fordelKolonner (kilder) {
  * Hvert års tal erstattes helt af den nye fordeling. Placeringerne i Omform
  * bevares for de poster, der stadig findes (fx når endnu et regnskab fra
  * samme virksomhed indlæses) — de studerendes omformning skal ikke gå tabt.
+ * Kun helt nye poster får en standardplacering.
  */
 export function anvendFordeling (dataset, fordeling) {
   const kopi = structuredClone(dataset)
   const ids = new Set(fordeling.poster.map(p => p.id))
+  const kendte = new Set((kopi.poster || []).map(p => p.id))
   kopi.poster = fordeling.poster
-  kopi.placering = Object.fromEntries(Object.entries(kopi.placering || {}).filter(([id]) => ids.has(id)))
+  kopi.placering = foreslaaPlacering(
+    fordeling.poster.filter(p => !kendte.has(p.id)),
+    Object.fromEntries(Object.entries(kopi.placering || {}).filter(([id]) => ids.has(id)))
+  )
   kopi.aar.forEach((y, i) => {
     const a = fordeling.aar[i]
     if (a) {

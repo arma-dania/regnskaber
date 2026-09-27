@@ -100,8 +100,8 @@ export async function importerPdf (file) {
   const poster = []
 
   // Hver genkendt linje bliver en post med linjens eget navn, i den
-  // rækkefølge den står i PDF'en. Mønstrene bruges kun til at finde
-  // regnskabslinjerne, ikke til at placere dem i analyseformen.
+  // rækkefølge den står i PDF'en. Mønsteret giver et forslag til, hvilken
+  // linje i analyseformen posten svarer direkte til.
   alleLinjer.forEach(linje => {
     for (const [key, patterns] of MOENSTRE) {
       const label = linje.replace(/\s+\(?-?[\d.,()\s]+$/, '').trim()
@@ -119,7 +119,7 @@ export async function importerPdf (file) {
         const fortegn = POSITIVE.includes(key) ? Math.abs : v => v
         kolonner[0][id] = fortegn(brugbare[0])
         if (brugbare[1] != null) kolonner[1][id] = fortegn(brugbare[1])
-        poster.push({ id, label: label || FIELD_MAP[key].label, sektion })
+        poster.push({ id, label: label || FIELD_MAP[key].label, sektion, forslag: FIELD_MAP[key].derived ? null : key })
       }
       break
     }

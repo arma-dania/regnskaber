@@ -1,44 +1,76 @@
 import { useState } from 'react'
-import { FIELDS, FIELD_MAP, SECTIONS, PRIMO_FIELDS, REGNSKABSAFSNIT, withDerived, validate, placerPost } from '../lib/model.js'
+import { FIELDS, SECTIONS, PRIMO_FIELDS, withDerived, validate, placerPost, flytLinje } from '../lib/model.js'
 
 const visTal = n => (n == null || Number.isNaN(n) ? '' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(n))
+
+// Regnskabets afsnit -> analyseformens afsnit, hvor de ikke-placerede poster vises.
+const ANALYSEAFSNIT = { resultat: 'resultat', aktiver: 'aktiver', passiver: 'passiver', pengestroem: 'ovrigt' }
+
+/**
+ * Deler de ikke-placerede poster i ét afsnit i to: dem, den studerende skal
+ * tage stilling til, og regnskabets egne summer og delposter, der allerede
+ * er dækket af en placeret sum (fx selskabskapital, når egenkapitalen er
+ * placeret). En delpost hører til den næste sum efter den i regnskabet.
+ */
+function ikkePlacerede (poster, placering, sektion) {
+  const liste = poster.filter(p => p.sektion === sektion)
+  const aabne = []
+  const daekkede = []
+  liste.forEach((p, i) => {
+    if (placering[p.id]) return
+    const naesteSum = liste.slice(i + 1).find(q => q.erSum)
+    if (p.erSum || (naesteSum && placering[naesteSum.id])) daekkede.push(p)
+    else aabne.push(p)
+  })
+  return { aabne, daekkede }
+}
 
 export default function DataGrid ({ dataset, setDataset }) {
   const [visPrimo, setVisPrimo] = useState(() => Object.keys(dataset.primoPoster || {}).length > 0)
   const [traekker, setTraekker] = useState(null)
   const [over, setOver] = useState(null)
   const [valgt, setValgt] = useState(null)
+  const [visDaekkede, setVisDaekkede] = useState({})
   const noter = validate(dataset)
 
   const poster = dataset.poster || []
   const placering = dataset.placering || {}
-  const antalPlaceret = poster.filter(p => placering[p.id]).length
-  const nyeste = [...dataset.aar].reverse().find(y => Object.keys(y.poster || {}).length) || null
   const beregnede = dataset.aar.map(y => withDerived(y.values))
   const primoBeregnet = withDerived(dataset.primo || {})
+  const antalKolonner = 1 + (visPrimo ? 1 : 0) + dataset.aar.length
 
-  const placer = (postId, key) => setDataset(d => placerPost(d, postId, key))
+  const slip = (kilde, key) => {
+    if (!kilde) return
+    if (kilde.type === 'post') setDataset(d => placerPost(d, kilde.id, key))
+    else if (kilde.key !== key) setDataset(d => flytLinje(d, kilde.key, key))
+  }
 
-  const traekProps = p => ({
+  const traekProps = kilde => ({
     draggable: true,
-    onDragStart: e => { e.dataTransfer.setData('text/plain', p.id); e.dataTransfer.effectAllowed = 'move'; setTraekker(p.id) },
+    onDragStart: e => {
+      e.stopPropagation()
+      e.dataTransfer.setData('text/plain', JSON.stringify(kilde))
+      e.dataTransfer.effectAllowed = 'move'
+      setTraekker(kilde)
+    },
     onDragEnd: () => { setTraekker(null); setOver(null) }
   })
 
-  // 'regnskab' = listen over regnskabets poster; at slippe dér fjerner placeringen.
-  const modtagProps = key => ({
-    onDragOver: e => { if (traekker) { e.preventDefault(); setOver(key) } },
-    onDragLeave: () => setOver(o => (o === key ? null : o)),
+  // key = en linje i analyseformen, eller null for "ikke placeret".
+  const modtagProps = (key, markering) => ({
+    onDragOver: e => { if (traekker) { e.preventDefault(); setOver(markering) } },
+    onDragLeave: () => setOver(o => (o === markering ? null : o)),
     onDrop: e => {
       e.preventDefault()
-      const id = traekker || e.dataTransfer.getData('text/plain')
-      if (id) placer(id, key === 'regnskab' ? null : key)
+      let kilde = traekker
+      if (!kilde) { try { kilde = JSON.parse(e.dataTransfer.getData('text/plain')) } catch { kilde = null } }
+      slip(kilde, key)
       setTraekker(null); setOver(null)
     }
   })
 
   const vaelg = id => setValgt(v => (v === id ? null : id))
-  const placerValgt = key => { if (valgt) { placer(valgt, key); setValgt(null) } }
+  const placerValgt = key => { if (valgt) { slip({ type: 'post', id: valgt }, key); setValgt(null) } }
 
   const saetAarLabel = (i, tekst) => setDataset(d => {
     const kopi = structuredClone(d)
@@ -46,22 +78,40 @@ export default function DataGrid ({ dataset, setDataset }) {
     return kopi
   })
 
-  const antalKolonner = 1 + (visPrimo ? 1 : 0) + dataset.aar.length
+  const talceller = p => (
+    <>
+      {visPrimo && <td className="num">{p.sektion === 'aktiver' || p.sektion === 'passiver' ? visTal(dataset.primoPoster?.[p.id]) : ''}</td>}
+      {dataset.aar.map((y, i) => <td key={i} className="num">{visTal(y.poster?.[p.id])}</td>)}
+    </>
+  )
+
+  // modtager = den linje (eller null for "ikke placeret"), et slip på rækken gælder.
+  const postRaekke = (p, klasse, modtager, markering, ekstra) => (
+    <tr
+      key={p.id} className={klasse + (valgt === p.id ? ' valgt' : '') + (p.erSum ? ' regnskabssum' : '') + (over === markering ? ' traek-over' : '')}
+      {...modtagProps(modtager, markering)}
+      {...traekProps({ type: 'post', id: p.id })}
+      onClick={e => { e.stopPropagation(); vaelg(p.id) }}
+      title="Træk til en linje i analyseformen for at flytte posten dertil"
+    >
+      <td><span className="postnavn traekbar">{p.label}{ekstra}</span></td>
+      {talceller(p)}
+    </tr>
+  )
 
   return (
     <>
       <h2 className="sektion-titel">Regnskabet i analyseform</h2>
       <p className="sektion-intro">
-        Her omformer du selv regnskabet til analysebrug. Til venstre står regnskabets egne
-        poster, præcis som de er indlæst. Træk hver post over på den linje i analyseformen, hvor
-        den hører hjemme — eller klik på posten og derefter på linjen. Lægger du flere poster på
-        samme linje, lægges de sammen. En placeret post kan trækkes videre til en anden linje
-        eller tilbage til listen.
+        Regnskabets poster står under den linje i analyseformen, de svarer direkte til. Poster
+        uden en oplagt plads står under <strong>Ikke placeret</strong> nederst i hvert afsnit og
+        indgår ikke i nøgletallene, før du flytter dem. Værktøjet lægger aldrig selv poster sammen.
       </p>
       <p className="sektion-intro">
-        Linjer mærket <strong>beregnes</strong> (grå kursiv) udregnes automatisk ud fra de andre
-        linjer. Regnskabets egne sumposter står med fed — placér enten summen eller de poster,
-        den består af, ikke begge. Tallene kan ikke rettes her; de kommer fra de indlæste regnskaber.
+        Træk en post over på en anden linje for at flytte den — eller klik på posten og derefter
+        på linjen. Lander flere poster på samme linje, lægges de sammen. Du kan også trække en hel
+        linje over på en anden for at lægge dem sammen, eller trække en post ned under Ikke
+        placeret for at tage den ud. Linjer mærket <strong>beregnes</strong> udregnes automatisk.
       </p>
 
       <div className="kort">
@@ -103,79 +153,63 @@ export default function DataGrid ({ dataset, setDataset }) {
         <div className="besked advarsel">Der er ikke indlæst nogen regnskaber endnu. Indlæs dem under "Indlæs regnskaber".</div>
       )}
 
-      <div className="omform">
-        <div className={'kort omform-poster' + (over === 'regnskab' ? ' traek-over' : '')} {...modtagProps('regnskab')}>
-          <h3>Regnskabets poster</h3>
-          <p className="hjaelp">{antalPlaceret} af {poster.length} placeret{nyeste?.label ? ` · tal for ${nyeste.label}` : ''}</p>
-          {REGNSKABSAFSNIT.map(afs => {
-            const liste = poster.filter(p => p.sektion === afs.id)
-            if (!liste.length) return null
-            return (
-              <div key={afs.id} className="omform-afsnit">
-                <div className="omform-afsnit-titel">{afs.title}</div>
-                {liste.map(p => (
-                  <div
-                    key={p.id} role="button" tabIndex={0} aria-pressed={valgt === p.id}
-                    className={'regnskabspost' + (p.erSum ? ' sum' : '') + (placering[p.id] ? ' placeret' : '') + (valgt === p.id ? ' valgt' : '')}
-                    title={placering[p.id] ? `Placeret på ${FIELD_MAP[placering[p.id]]?.label}` : 'Træk til en linje i analyseformen'}
-                    onClick={() => vaelg(p.id)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); vaelg(p.id) } }}
-                    {...traekProps(p)}
-                  >
-                    <span className="regnskabspost-navn">
-                      {p.label}
-                      {placering[p.id] && <span className="regnskabspost-placering">→ {FIELD_MAP[placering[p.id]]?.label}</span>}
-                    </span>
-                    <span className="regnskabspost-tal">{visTal(nyeste?.poster?.[p.id])}</span>
-                  </div>
-                ))}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="kort">
-          {valgt && (
-            <div className="besked">
-              Klik på den linje i analyseformen, hvor "{poster.find(p => p.id === valgt)?.label}" skal placeres.
-              {placering[valgt] && (
-                <button className="knap lys" style={{ padding: '2px 8px', fontSize: 12, marginLeft: 8 }} onClick={() => { placer(valgt, null); setValgt(null) }}>
-                  Fjern placering
-                </button>
-              )}
-            </div>
+      {valgt && (
+        <div className="besked valg-flydende">
+          Klik på den linje, hvor "{poster.find(p => p.id === valgt)?.label}" skal stå.
+          <button className="knap lys" style={{ padding: '2px 8px', fontSize: 12, marginLeft: 8 }} onClick={() => setValgt(null)}>Annullér</button>
+          {placering[valgt] && (
+            <button className="knap lys" style={{ padding: '2px 8px', fontSize: 12, marginLeft: 6 }} onClick={() => { slip({ type: 'post', id: valgt }, null); setValgt(null) }}>
+              Tag ud af analyseformen
+            </button>
           )}
-          <div className="tabel-omslag">
-            <table className="data">
-              <thead>
-                <tr>
-                  <th style={{ minWidth: 240 }}>Analyseform</th>
-                  {visPrimo && <th className="num" style={{ width: 120 }}>Primo</th>}
-                  {dataset.aar.map((y, i) => (
-                    <th key={i} className="num" style={{ width: 140 }}>
-                      <input
-                        type="text" value={y.label} onChange={e => saetAarLabel(i, e.target.value)}
-                        aria-label={`Navn på år ${i + 1}`} style={{ textAlign: 'right' }}
-                      />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {SECTIONS.map(sec => (
+        </div>
+      )}
+
+      <div className="kort">
+        <div className="tabel-omslag">
+          <table className="data">
+            <thead>
+              <tr>
+                <th style={{ minWidth: 280 }}>Post</th>
+                {visPrimo && <th className="num" style={{ width: 130 }}>Primo</th>}
+                {dataset.aar.map((y, i) => (
+                  <th key={i} className="num" style={{ width: 150 }}>
+                    <input
+                      type="text" value={y.label} onChange={e => saetAarLabel(i, e.target.value)}
+                      aria-label={`Navn på år ${i + 1}`} style={{ textAlign: 'right' }}
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {SECTIONS.map(sec => {
+                const regnskabsafsnit = Object.keys(ANALYSEAFSNIT).filter(k => ANALYSEAFSNIT[k] === sec.id)
+                const aabne = []
+                const daekkede = []
+                regnskabsafsnit.forEach(s => {
+                  const r = ikkePlacerede(poster, placering, s)
+                  aabne.push(...r.aabne)
+                  daekkede.push(...r.daekkede)
+                })
+                const ikkePlaceretMarkering = 'ikke:' + sec.id
+                return (
                   <Fragmenter key={sec.id}>
                     <tr className="gruppe"><td colSpan={antalKolonner}>{sec.title}</td></tr>
                     {FIELDS.filter(f => f.section === sec.id).map(f => {
                       const placerede = f.derived ? [] : poster.filter(p => placering[p.id] === f.key)
+                      const kanTraekkes = placerede.length > 0
                       return (
                         <Fragmenter key={f.key}>
                           <tr
                             className={(f.derived ? 'sum' : 'modtager') + (over === f.key ? ' traek-over' : '') + (valgt && !f.derived ? ' kan-modtage' : '')}
-                            {...(f.derived ? {} : modtagProps(f.key))}
+                            {...(f.derived ? {} : modtagProps(f.key, f.key))}
+                            {...(kanTraekkes ? traekProps({ type: 'linje', key: f.key }) : {})}
                             onClick={f.derived ? undefined : () => placerValgt(f.key)}
+                            title={kanTraekkes ? 'Træk hele linjen over på en anden linje for at lægge dem sammen' : undefined}
                           >
                             <td>
-                              <span className="postnavn">
+                              <span className={'postnavn' + (kanTraekkes ? ' traekbar' : '')}>
                                 {f.label}
                                 {f.derived && <span className="mærkat" title={'Beregnes som: ' + f.derived}>beregnes</span>}
                               </span>
@@ -195,29 +229,45 @@ export default function DataGrid ({ dataset, setDataset }) {
                               </td>
                             ))}
                           </tr>
-                          {placerede.map(p => (
-                            <tr key={p.id} className={'placeret-post' + (valgt === p.id ? ' valgt' : '')} {...traekProps(p)}>
-                              <td>
-                                <span className="postnavn traekbar" onClick={() => vaelg(p.id)}>
-                                  ↳ {p.label}
-                                  <button
-                                    className="fjern-placering" aria-label={`Fjern ${p.label} fra ${f.label}`}
-                                    title="Fjern placering" onClick={e => { e.stopPropagation(); placer(p.id, null) }}
-                                  >×</button>
-                                </span>
-                              </td>
-                              {visPrimo && <td className="num">{PRIMO_FIELDS.includes(f.key) ? visTal(dataset.primoPoster?.[p.id]) : ''}</td>}
-                              {dataset.aar.map((y, i) => <td key={i} className="num">{visTal(y.poster?.[p.id])}</td>)}
-                            </tr>
-                          ))}
+                          {placerede.map(p => postRaekke(p, 'placeret-post', f.key, f.key, (
+                            <button
+                              className="fjern-placering" aria-label={`Tag ${p.label} ud af ${f.label}`}
+                              title="Tag ud af analyseformen" onClick={e => { e.stopPropagation(); slip({ type: 'post', id: p.id }, null) }}
+                            >×</button>
+                          )))}
                         </Fragmenter>
                       )
                     })}
+
+                    {(aabne.length > 0 || daekkede.length > 0) && (
+                      <>
+                        <tr
+                          className={'ikke-placeret-titel' + (over === ikkePlaceretMarkering ? ' traek-over' : '')}
+                          {...modtagProps(null, ikkePlaceretMarkering)}
+                        >
+                          <td colSpan={antalKolonner}>
+                            Ikke placeret · indgår ikke i nøgletallene
+                            {aabne.length === 0 && <span className="hjaelp-inline"> — ingen poster mangler at blive taget stilling til</span>}
+                          </td>
+                        </tr>
+                        {aabne.map(p => postRaekke(p, 'ikke-placeret-post', null, ikkePlaceretMarkering))}
+                        {daekkede.length > 0 && (
+                          <tr className="daekkede-knap">
+                            <td colSpan={antalKolonner}>
+                              <button className="link-knap" onClick={() => setVisDaekkede(v => ({ ...v, [sec.id]: !v[sec.id] }))}>
+                                {visDaekkede[sec.id] ? 'Skjul' : 'Vis'} regnskabets summer og delposter, der allerede er dækket ({daekkede.length})
+                              </button>
+                            </td>
+                          </tr>
+                        )}
+                        {visDaekkede[sec.id] && daekkede.map(p => postRaekke(p, 'ikke-placeret-post daekket', null, ikkePlaceretMarkering))}
+                      </>
+                    )}
                   </Fragmenter>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </>

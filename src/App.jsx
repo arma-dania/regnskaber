@@ -250,7 +250,7 @@ const VELKOMST_TRIN = [
   },
   {
     navn: 'Analyseform',
-    tekst: 'Omform selv regnskabet til analysebrug: træk hver af regnskabets poster over på den linje i analyseformen, hvor den hører hjemme.'
+    tekst: 'Regnskabets poster står på forhånd på den linje i analyseformen, de svarer direkte til. Du flytter eller lægger selv poster sammen, hvor du finder det nødvendigt, og tager stilling til de poster, der ikke har en oplagt plads.'
   },
   {
     navn: 'Nøgletal og grafer',

@@ -125,6 +125,66 @@ export function analyseLinjer (dataset, sektion) {
     .map(felt => ({ felt, placerede: felt.derived ? [] : (dataset.poster || []).filter(p => dataset.placering?.[p.id] === felt.key) }))
 }
 
+// Regnskabsbegreber, der svarer direkte til én linje i analyseformen — i
+// prioriteret rækkefølge. Kun poster med et sådant entydigt modstykke
+// sættes på forhånd på en linje; alt andet placerer den studerende selv.
+const STANDARD_PLACERING = {
+  omsaetning: ['Revenue', 'SalesRevenue', 'RevenueFromContractsWithCustomers'],
+  vareforbrug: ['CostOfSales', 'RawMaterialsAndConsumablesUsed', 'CostOfGoodsSold'],
+  personaleomkostninger: ['EmployeeBenefitsExpense', 'StaffCosts'],
+  andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses'],
+  afskrivninger: ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'DepreciationAmortisationExpense', 'DepreciationAndAmortisation'],
+  finansielleIndtaegter: ['OtherFinanceIncome', 'FinanceIncome', 'FinancialIncome'],
+  finansielleOmkostninger: ['OtherFinanceExpenses', 'FinanceCosts', 'FinancialExpenses'],
+  skat: ['TaxExpenseOnOrdinaryActivities', 'TaxExpense', 'IncomeTaxExpenseContinuingOperations', 'IncomeTaxExpense'],
+  immaterielleAnlaeg: ['IntangibleAssets'],
+  materielleAnlaeg: ['PropertyPlantAndEquipment'],
+  finansielleAnlaeg: ['LongtermInvestmentsAndReceivables', 'NoncurrentFinancialAssets'],
+  varelager: ['Inventories'],
+  varedebitorer: ['ShorttermTradeReceivables', 'TradeReceivables', 'CurrentTradeReceivables'],
+  andreTilgodehavender: ['OtherShorttermReceivables', 'OtherCurrentReceivables'],
+  likvider: ['CashAndCashEquivalents'],
+  egenkapital: ['Equity'],
+  hensatteForpligtelser: ['Provisions'],
+  langfristetGaeld: ['LongtermLiabilitiesOtherThanProvisions', 'NoncurrentLiabilities'],
+  leverandoergaeld: ['ShorttermTradePayables', 'TradePayables'],
+  andenKortfristetGaeld: ['OtherPayablesIncludingTaxPayablesLiabilitiesOtherThanProvisionsShortterm'],
+  pengestroemPrimaerDrift: ['CashFlowFromOperatingActivities', 'CashFlowsFromUsedInOperatingActivities']
+}
+
+// XBRL-posters id er "<afsnit>:<begreb>"; PDF-poster har i stedet et forslag.
+const begrebFor = p => (p.id.startsWith('pdf:') ? null : p.id.slice(p.id.indexOf(':') + 1).toLowerCase())
+
+/**
+ * Sætter nye poster på den linje, de svarer direkte til — men aldrig mere
+ * end én post pr. linje, og aldrig på en linje, der allerede har poster.
+ * Værktøjet lægger altså ikke selv poster sammen.
+ */
+export function foreslaaPlacering (nyePoster, placering = {}) {
+  const ud = { ...placering }
+  const optaget = new Set(Object.values(ud))
+  FIELDS.forEach(f => {
+    if (f.derived || optaget.has(f.key)) return
+    const begreber = (STANDARD_PLACERING[f.key] || []).map(b => b.toLowerCase())
+    const kandidater = nyePoster.filter(p => !(p.id in ud))
+    const valgt = begreber.map(b => kandidater.find(p => begrebFor(p) === b)).find(Boolean) ||
+      kandidater.find(p => p.forslag === f.key)
+    if (valgt) { ud[valgt.id] = f.key; optaget.add(f.key) }
+  })
+  return ud
+}
+
+/** Flytter alle poster fra én linje til en anden (eller fjerner dem med null). */
+export function flytLinje (dataset, fraKey, tilKey) {
+  const placering = { ...(dataset.placering || {}) }
+  Object.entries(placering).forEach(([id, key]) => {
+    if (key !== fraKey) return
+    if (tilKey) placering[id] = tilKey
+    else delete placering[id]
+  })
+  return beregnAnalyse({ ...dataset, placering })
+}
+
 /** Placerer en af regnskabets poster på en analysepost (eller fjerner den med null). */
 export function placerPost (dataset, postId, key) {
   const placering = { ...(dataset.placering || {}) }
