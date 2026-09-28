@@ -70,7 +70,7 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
   if (oversigt.length) {
     analyseBoern.push(new Paragraph({ heading: HeadingLevel.HEADING_2, text: 'Sammenlagte poster', spacing: { before: 200, after: 120 } }))
     oversigt.forEach(o => analyseBoern.push(new Paragraph({
-      children: [new TextRun({ text: o.navn, bold: true, size: 19 }), new TextRun({ text: ' = ' + o.dele.join(' + '), size: 19 })],
+      children: [new TextRun({ text: o.navn, bold: true, size: 19 }), new TextRun({ text: ' = ' + o.udtryk, size: 19 })],
       spacing: { after: 60 }
     })))
   }
