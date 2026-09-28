@@ -4,7 +4,7 @@ import {
 } from 'docx'
 import { saveAs } from 'file-saver'
 import { omformetRegnskab, sammenlaegningsoversigt, flytningsoversigt } from './model.js'
-import { nogletalFor, beregnesPaaBrutto, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
+import { nogletalFor, beregnesPaaBrutto, procentvisAendring, formatAendring, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
 import { filnavn } from './exportExcel.js'
 import { hentAlleGrafer } from './chartImage.js'
 
@@ -92,8 +92,9 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
     const raekker = [new TableRow({
       children: [
         celle('Nr.', { fed: true, skygge: true, bredde: 6 }),
-        celle('Nøgletal', { fed: true, skygge: true, bredde: 40 }),
-        ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 18 }))
+        celle('Nøgletal', { fed: true, skygge: true, bredde: 36 }),
+        ...aarNavne.map(a => celle(a, { fed: true, skygge: true, hoejre: true, bredde: 14 })),
+        celle('Ændring i %', { fed: true, skygge: true, hoejre: true, bredde: 16 })
       ]
     })]
     nogletalFor(dataset).filter(n => n.omraade === o.id).forEach(n => {
@@ -101,7 +102,8 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
         children: [
           celle(n.nr, { hoejre: true }),
           celle(n.navn),
-          ...resultater.map(r => celle(formatVaerdi(n, r[n.nr].value, dataset.enhed), { hoejre: true }))
+          ...resultater.map(r => celle(formatVaerdi(n, r[n.nr].value, dataset.enhed), { hoejre: true })),
+          celle(formatAendring(procentvisAendring(resultater, n.nr)), { hoejre: true })
         ]
       }))
     })

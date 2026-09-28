@@ -312,6 +312,28 @@ function kortEnhed (e) {
   return 'kr.'
 }
 
+/**
+ * Procentvis ændring fra det første til det sidste år, der har et tal.
+ * Nævneren er første års tal uden fortegn, så et fald altid bliver negativt
+ * — også når nøgletallet startede under nul.
+ */
+export function procentvisAendring (resultater, nr) {
+  const tal = resultater.map(r => r[nr]?.value).filter(v => v != null && Number.isFinite(v))
+  if (tal.length < 2 || tal[0] === 0) return null
+  return (tal[tal.length - 1] - tal[0]) / Math.abs(tal[0]) * 100
+}
+
+export function formatAendring (p) {
+  if (p == null || !Number.isFinite(p)) return '–'
+  return (p > 0 ? '+' : '') + new Intl.NumberFormat('da-DK', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(p) + ' %'
+}
+
+/** 'op' (bedre), 'ned' (dårligere) eller 'neutral' for en ændring, ud fra nøgletallets "bedre"-retning. */
+export function aendringsretning (n, p) {
+  if (p == null || Math.abs(p) < 0.05 || n.bedre === 'neutral') return 'neutral'
+  return (p > 0) === (n.bedre !== 'ned') ? 'op' : 'ned'
+}
+
 export function formatVaerdi (n, value, enhedstekst = '') {
   if (value == null || !Number.isFinite(value)) return '–'
   const d = new Intl.NumberFormat('da-DK', { minimumFractionDigits: 1, maximumFractionDigits: 1 })

@@ -179,6 +179,7 @@ table.data input:focus { border-color: var(--petrol); background: #fff; outline:
 .aendring.op { color: var(--op); }
 .aendring.ned { color: var(--ned); }
 .aendring.neutral { color: var(--daempet); }
+table.data .aendring-kolonne { border-left: 1px solid var(--linje); white-space: nowrap; }
 
 .nt-graf { margin-top: 6px; }
 .nt-fod { display: flex; justify-content: flex-end; align-items: center; font-size: 11px; color: var(--daempet); padding: 6px 0 4px; border-top: 1px solid var(--linje-svag); margin-top: 8px; }
