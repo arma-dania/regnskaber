@@ -3,7 +3,7 @@ import ImportPanel from './components/ImportPanel.jsx'
 import DataGrid from './components/DataGrid.jsx'
 import NogletalKort from './components/NogletalKort.jsx'
 import { emptyDataset, FIELDS, SECTIONS } from './lib/model.js'
-import { nogletalFor, manglerOmsaetning, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi } from './lib/nogletal.js'
+import { nogletalFor, manglerOmsaetning, OMRAADER, beregnAlle, byggIndeksNogletal, formatVaerdi, procentvisAendring, formatAendring, aendringsretning } from './lib/nogletal.js'
 import { hentExcel } from './lib/exportExcel.js'
 import { hentWord } from './lib/exportWord.js'
 
@@ -348,20 +348,25 @@ function NogletalTabel ({ nogletal, resultater, aarNavne, enhed }) {
           <tr>
             <th>Nøgletal</th>
             {aarNavne.map((a, i) => <th key={i} className="num">{a}</th>)}
+            <th className="num aendring-kolonne" title="Procentvis ændring fra det første til det sidste år med et tal">Ændring i %</th>
           </tr>
         </thead>
         <tbody>
-          {nogletal.map(n => (
-            <tr key={n.nr}>
-              <td>{typeof n.nr === 'number' && `${n.visNr ?? n.nr}. `}{n.navn}</td>
-              {resultater.map((r, i) => (
-                <td key={i} className="num">
-                  {formatVaerdi(n, r[n.nr].value, enhed)}
-                  {r[n.nr].skoen && <span className="skoen-mærke" title="Beregnet på ultimotal, fordi primobalancen mangler">*</span>}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {nogletal.map(n => {
+            const aendring = procentvisAendring(resultater, n.nr)
+            return (
+              <tr key={n.nr}>
+                <td>{typeof n.nr === 'number' && `${n.visNr ?? n.nr}. `}{n.navn}</td>
+                {resultater.map((r, i) => (
+                  <td key={i} className="num">
+                    {formatVaerdi(n, r[n.nr].value, enhed)}
+                    {r[n.nr].skoen && <span className="skoen-mærke" title="Beregnet på ultimotal, fordi primobalancen mangler">*</span>}
+                  </td>
+                ))}
+                <td className={'num aendring-kolonne aendring ' + aendringsretning(n, aendring)}>{formatAendring(aendring)}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
       {harSkoen && <p className="hjaelp" style={{ marginTop: 6 }}>* Skøn — beregnet på ultimotal, fordi primobalancen mangler.</p>}

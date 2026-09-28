@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 import { omformetRegnskab, sammenlaegningsoversigt, flytningsoversigt } from './model.js'
-import { nogletalFor, OMRAADER, beregnAlle } from './nogletal.js'
+import { nogletalFor, OMRAADER, beregnAlle, procentvisAendring } from './nogletal.js'
 
 const r2 = v => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100)
 
@@ -32,7 +32,7 @@ export function byggeArbejdsbog (dataset) {
   XLSX.utils.book_append_sheet(wb, ws1, 'Analyseform')
 
   // Ark 2: alle 28 nøgletal
-  const nt = [['Nr.', 'Nøgletal', 'Enhed', ...aarNavne, 'Udvikling'], []]
+  const nt = [['Nr.', 'Nøgletal', 'Enhed', ...aarNavne, 'Udvikling', 'Ændring i %'], []]
   nt.splice(1, 1)
   OMRAADER.forEach(o => {
     nt.push([o.title.toUpperCase()])
@@ -41,12 +41,12 @@ export function byggeArbejdsbog (dataset) {
       const foerste = vaerdier[0]
       const sidste = vaerdier[vaerdier.length - 1]
       const udvikling = foerste != null && sidste != null ? r2(sidste - foerste) : null
-      nt.push([n.nr, n.navn, n.enhed, ...vaerdier, udvikling])
+      nt.push([n.nr, n.navn, n.enhed, ...vaerdier, udvikling, r2(procentvisAendring(resultater, n.nr))])
     })
     nt.push([])
   })
   const ws2 = XLSX.utils.aoa_to_sheet(nt)
-  ws2['!cols'] = [{ wch: 5 }, { wch: 44 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }]
+  ws2['!cols'] = [{ wch: 5 }, { wch: 44 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }]
   XLSX.utils.book_append_sheet(wb, ws2, 'Nøgletal')
 
   // Ark 3: tæller og nævner bag hvert tal
