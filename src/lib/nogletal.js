@@ -336,7 +336,10 @@ export function aendringsretning (n, p) {
 
 export function formatVaerdi (n, value, enhedstekst = '') {
   if (value == null || !Number.isFinite(value)) return '–'
-  const d = new Intl.NumberFormat('da-DK', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  // Tal under 10 får to decimaler, så fx en overskudsgrad på 0,37 % ikke
+  // vises som 0,4 % — ellers kan den procentvise ændring ikke regnes efter.
+  const decimaler = Math.abs(value) < 10 ? 2 : 1
+  const d = new Intl.NumberFormat('da-DK', { minimumFractionDigits: decimaler, maximumFractionDigits: decimaler })
   const h = new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 })
   switch (n.enhed) {
     case '%': return d.format(value) + ' %'
