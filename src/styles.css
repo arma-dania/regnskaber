@@ -239,6 +239,7 @@ details.vejledning[open] > summary { border-bottom: 1px solid var(--linje-svag);
 details.vejledning > :not(summary) { margin-left: 20px; margin-right: 20px; }
 details.vejledning > :last-child { margin-bottom: 20px; }
 details.vejledning h4 { font-size: 14px; margin: 20px 20px 6px; color: var(--blaek); }
+details.vejledning h4.nyt-afsnit { margin-top: 32px; padding-top: 22px; border-top: 1px solid var(--linje); }
 details.vejledning h4.dit-regnskab::after { content: '← dit regnskab'; margin-left: 10px; font-size: 11px; font-weight: 600; color: var(--okker); }
 details.vejledning p, details.vejledning li { font-size: 14px; color: var(--blaek); max-width: 80ch; }
 details.vejledning ul { padding-left: 20px; }

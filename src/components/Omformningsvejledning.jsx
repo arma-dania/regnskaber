@@ -83,15 +83,15 @@ export default function Omformningsvejledning ({ opstilling }) {
         <li>En sammenlægning gælder automatisk alle år, så posterne behandles ens hele perioden igennem.</li>
       </ul>
 
-      <h4 className={opstilling === 'arts' ? 'dit-regnskab' : ''}>Artsopdelt resultatopgørelse</h4>
+      <h4 className={'nyt-afsnit' + (opstilling === 'arts' ? ' dit-regnskab' : '')}>Artsopdelt resultatopgørelse</h4>
       <p>Kendes på, at andre eksterne omkostninger, personaleomkostninger og af- og nedskrivninger står som hver sin linje.</p>
       <Trin raekker={ARTSOPDELT} />
 
-      <h4 className={opstilling === 'funktion' ? 'dit-regnskab' : ''}>Funktionsopdelt resultatopgørelse</h4>
+      <h4 className={'nyt-afsnit' + (opstilling === 'funktion' ? ' dit-regnskab' : '')}>Funktionsopdelt resultatopgørelse</h4>
       <p>Kendes på linjerne produktionsomkostninger, distributionsomkostninger og administrationsomkostninger.</p>
       <Trin raekker={FUNKTIONSOPDELT} />
 
-      <h4>Viser regnskabet kun bruttofortjeneste?</h4>
+      <h4 className="nyt-afsnit">Viser regnskabet kun bruttofortjeneste?</h4>
       <p>
         Små virksomheder (regnskabsklasse B) må vise bruttofortjeneste i stedet for omsætning og
         vareforbrug. Så er der intet at omforme over bruttofortjenesten: lad den stå, og omform
