@@ -115,9 +115,11 @@ export function iVisningsenhed (dataset) {
 // baggrunden til nøgletallene — den studerende ser regnskabets egne poster.
 const ROLLER = {
   omsaetning: ['Revenue', 'SalesRevenue', 'RevenueFromContractsWithCustomers'],
-  vareforbrug: ['CostOfSales', 'RawMaterialsAndConsumablesUsed', 'CostOfGoodsSold'],
+  vareforbrug: ['CostOfSales', 'RawMaterialsAndConsumablesUsed', 'CostOfGoodsSold', 'ChangesInInventoriesOfFinishedGoodsWorkInProgressAndGoodsForResale'],
   personaleomkostninger: ['EmployeeBenefitsExpense', 'StaffCosts', 'WagesAndSalaries', 'Salaries', 'PensionCosts', 'PostemploymentBenefitExpense', 'OtherSocialSecurityContributions', 'SocialSecurityContributions', 'OtherEmployeeBenefitsExpense', 'OtherStaffCosts'],
-  andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses'],
+  // Distributions- og administrationsomkostninger i en funktionsopdelt
+  // resultatopgørelse er kapacitetsomkostninger.
+  andreEksterne: ['OtherExternalExpenses', 'ExternalExpenses', 'DistributionCosts', 'AdministrativeExpenses', 'AdministrativeExpense'],
   afskrivninger: ['DepreciationAmortisationExpenseAndImpairmentLossesOfPropertyPlantAndEquipmentAndIntangibleAssetsRecognisedInProfitOrLoss', 'DepreciationAmortisationExpense', 'DepreciationAndAmortisation'],
   finansielleIndtaegter: ['OtherFinanceIncome', 'FinanceIncome', 'FinancialIncome'],
   finansielleOmkostninger: ['OtherFinanceExpenses', 'FinanceCosts', 'FinancialExpenses'],
@@ -156,6 +158,31 @@ const RESULTAT_SUMMER = ['bruttoresultat', 'resultatPrimaerDrift', 'resultatFoer
 const begrebFor = p => (p.id.startsWith('pdf:') ? null : p.id.slice(p.id.indexOf(':') + 1).toLowerCase())
 const egenRolle = p => (begrebFor(p) ? ROLLE_FOR_BEGREB.get(begrebFor(p)) : p.forslag) || null
 
+// Om en post er en indtægt eller en omkostning. Omkostninger står som
+// positive tal, så lægges en indtægt sammen med en omkostning (fx andre
+// driftsindtægter med andre eksterne omkostninger), skal den trækkes fra.
+const ROLLE_ART = {
+  omsaetning: 'indtaegt',
+  finansielleIndtaegter: 'indtaegt',
+  vareforbrug: 'omkostning',
+  personaleomkostninger: 'omkostning',
+  andreEksterne: 'omkostning',
+  afskrivninger: 'omkostning',
+  finansielleOmkostninger: 'omkostning',
+  skat: 'omkostning'
+}
+const ART_FOR_BEGREB = new Map([
+  ...['OtherOperatingIncome', 'ChangesInInventoriesOfFinishedGoodsWorkInProgressAndGoodsForResale', 'IncomeFromInvestmentsInGroupEnterprises', 'IncomeFromInvestmentsInAssociates', 'InterestIncomeFromGroupEnterprises', 'OtherInterestIncome'].map(b => [b.toLowerCase(), 'indtaegt']),
+  ['otheroperatingexpenses', 'omkostning']
+])
+const KAPACITET_FUNKTION = ['distributioncosts', 'administrativeexpenses', 'administrativeexpense', 'otheroperatingexpenses']
+const artFor = p => {
+  if (!p) return null
+  const b = begrebFor(p)
+  return (b && ART_FOR_BEGREB.get(b)) || ROLLE_ART[egenRolle(p)] || null
+}
+const fortegn = (a, b) => (a && b && a !== b ? -1 : 1)
+
 export const postMap = dataset => new Map((dataset.poster || []).map(p => [p.id, p]))
 
 /** En posts rolle i nøgletallene: sin egen, ellers den første blandt de sammenlagte dele. */
@@ -166,11 +193,19 @@ export function rolle (dataset, p, map = postMap(dataset)) {
 
 export const postNavn = (dataset, p) => dataset.sammenlaegninger?.[p.id]?.navn ?? p.label
 
-/** En posts tal i ét år (eller primo): dens eget plus de sammenlagte deles. */
-export function postTal (dataset, p, tal) {
-  const ids = [p.id, ...(dataset.sammenlaegninger?.[p.id]?.dele || [])]
-  const fundne = ids.map(id => tal?.[id]).filter(v => v != null)
-  return fundne.length ? fundne.reduce((a, b) => a + b, 0) : null
+/**
+ * En posts tal i ét år (eller primo): dens eget plus de sammenlagte deles.
+ * En del af den modsatte art (indtægt mod omkostning) trækkes fra.
+ */
+export function postTal (dataset, p, tal, map = postMap(dataset)) {
+  const art = artFor(p)
+  let sum = null
+  ;[p.id, ...(dataset.sammenlaegninger?.[p.id]?.dele || [])].forEach(id => {
+    const v = tal?.[id]
+    if (v == null) return
+    sum = (sum ?? 0) + v * (id === p.id ? 1 : fortegn(art, artFor(map.get(id))))
+  })
+  return sum
 }
 
 /** De poster, der vises i et afsnit — i resultatopgørelsen efter omformningen. */
@@ -195,11 +230,11 @@ export function beregnAnalyse (dataset) {
     FIELDS.forEach(f => { values[f.key] = null })
     const rapporteret = {}
     synlige.forEach(p => {
-      const v = postTal(kopi, p, tal)
+      const v = postTal(kopi, p, tal, map)
       const r = rolle(kopi, p, map)
       if (v == null || !r) return
       if (FIELD_MAP[r].derived) { if (rapporteret[r] == null) rapporteret[r] = v; return }
-      values[r] = (values[r] ?? 0) + v
+      values[r] = (values[r] ?? 0) + v * fortegn(ROLLE_ART[r], artFor(p))
     })
     Object.entries(rapporteret).forEach(([k, v]) => { if (!RESULTAT_SUMMER.includes(k)) values[k] = v })
     RESULTAT_SUMMER.forEach(k => {
@@ -268,8 +303,14 @@ export function navneforslag (dataset, kildeId, maalId) {
   const alle = [maal, kilde, ...[maalId, kildeId].flatMap(id => dataset.sammenlaegninger?.[id]?.dele || []).map(id => map.get(id))].filter(Boolean)
   const forslag = []
   if (alle.every(p => egenRolle(p) === 'personaleomkostninger')) forslag.push('Personaleomkostninger')
-  forslag.push(`${mNavn} og ${lilleBegyndelse(kNavn)}`)
-  forslag.push(`${mNavn} (inkl. ${lilleBegyndelse(kNavn)})`)
+  if (alle.every(p => artFor(p) === 'omkostning') && alle.some(p => KAPACITET_FUNKTION.includes(begrebFor(p)))) forslag.push('Kapacitetsomkostninger')
+  if (fortegn(artFor(maal), artFor(kilde)) === -1) {
+    forslag.push(`${mNavn} fratrukket ${lilleBegyndelse(kNavn)}`)
+    forslag.push(`${mNavn}, netto`)
+  } else {
+    forslag.push(`${mNavn} og ${lilleBegyndelse(kNavn)}`)
+    forslag.push(`${mNavn} (inkl. ${lilleBegyndelse(kNavn)})`)
+  }
   return [...new Set(forslag)]
 }
 
@@ -304,16 +345,30 @@ export function flytningsoversigt (dataset) {
     })
 }
 
-/** Oversigten over sammenlægninger: det nye navn og de poster, det består af. */
+/**
+ * Oversigten over sammenlægninger: det nye navn og de poster, det består af,
+ * som et regnestykke (fx "Andre eksterne omkostninger − Andre driftsindtægter").
+ */
 export function sammenlaegningsoversigt (dataset) {
   const map = postMap(dataset)
   return (dataset.raekkefoelge || [])
     .filter(id => dataset.sammenlaegninger?.[id])
-    .map(id => ({
-      id,
-      navn: dataset.sammenlaegninger[id].navn,
-      dele: [id, ...dataset.sammenlaegninger[id].dele].map(d => map.get(d)?.label).filter(Boolean)
-    }))
+    .map(id => {
+      const maal = map.get(id)
+      const udtryk = dataset.sammenlaegninger[id].dele
+        .map(d => map.get(d))
+        .filter(Boolean)
+        .reduce((t, q) => `${t} ${fortegn(artFor(maal), artFor(q)) === -1 ? '−' : '+'} ${q.label}`, maal?.label || '')
+      return { id, navn: dataset.sammenlaegninger[id].navn, udtryk }
+    })
+}
+
+/** Artsopdelt eller funktionsopdelt resultatopgørelse, ud fra regnskabets begreber. */
+export function opstillingsform (dataset) {
+  const begreber = (dataset.poster || []).filter(p => p.sektion === 'resultat').map(begrebFor)
+  if (begreber.some(b => ['costofsales', 'distributioncosts', 'administrativeexpenses', 'administrativeexpense'].includes(b))) return 'funktion'
+  if (begreber.some(b => ['otherexternalexpenses', 'employeebenefitsexpense', 'rawmaterialsandconsumablesused'].includes(b))) return 'arts'
+  return null
 }
 
 // Afledte poster udfyldes kun, hvor der ikke allerede står et tal.

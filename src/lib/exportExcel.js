@@ -20,7 +20,7 @@ export function byggeArbejdsbog (dataset) {
   const oversigt = sammenlaegningsoversigt(dataset)
   if (oversigt.length) {
     analyse.push(['SAMMENLAGTE POSTER'])
-    oversigt.forEach(o => analyse.push([o.navn, o.dele.join(' + ')]))
+    oversigt.forEach(o => analyse.push([o.navn, o.udtryk]))
   }
   const flytninger = flytningsoversigt(dataset)
   if (flytninger.length) {

@@ -227,8 +227,31 @@ table.data .aendring-kolonne { border-left: 1px solid var(--linje); white-space:
 .tidslinje-punkt .detalje { font-size: 11px; color: var(--daempet); }
 
 /* --- Omform: flyt og læg poster sammen i resultatopgørelsen --- */
-.omform-vejledning { padding-left: 20px; margin-top: -12px; }
-.omform-vejledning li { margin-bottom: 4px; }
+details.vejledning { border-left: 3px solid var(--petrol); padding: 0; }
+details.vejledning > summary {
+  cursor: pointer; padding: 14px 20px; font-weight: 600; font-size: 15px; list-style-position: inside;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+details.vejledning > summary::-webkit-details-marker { display: none; }
+details.vejledning > summary::before { content: '▸'; color: var(--petrol); font-size: 14px; transition: transform 0.15s; }
+details.vejledning[open] > summary::before { transform: rotate(90deg); }
+details.vejledning[open] > summary { border-bottom: 1px solid var(--linje-svag); }
+details.vejledning > :not(summary) { margin-left: 20px; margin-right: 20px; }
+details.vejledning > :last-child { margin-bottom: 20px; }
+details.vejledning h4 { font-size: 14px; margin: 20px 20px 6px; color: var(--blaek); }
+details.vejledning h4.dit-regnskab::after { content: '← dit regnskab'; margin-left: 10px; font-size: 11px; font-weight: 600; color: var(--okker); }
+details.vejledning p, details.vejledning li { font-size: 14px; color: var(--blaek); max-width: 80ch; }
+details.vejledning ul { padding-left: 20px; }
+details.vejledning li { margin-bottom: 4px; }
+.vejledning-maerke { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--okker); background: #fbf4e6; border: 1px solid #ecdcb9; border-radius: 10px; padding: 2px 8px; }
+.vejledning-maal { border-collapse: collapse; font-size: 14px; margin: 4px 0 8px; }
+.vejledning-maal td { padding: 2px 8px 2px 0; }
+.vejledning-maal td:first-child { width: 18px; color: var(--daempet); font-family: 'IBM Plex Mono', monospace; }
+.vejledning-maal tr.sum td { font-weight: 600; }
+.vejledning-tabel { width: calc(100% - 40px); border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+.vejledning-tabel th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--daempet); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--linje); }
+.vejledning-tabel td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--linje-svag); vertical-align: top; }
+.vejledning-tabel td:first-child { width: 32%; font-weight: 600; }
 table.data tr.traekbar-raekke td { cursor: grab; }
 table.data tr.traekbar-raekke:hover td { background: #fbfcfa; }
 table.data tr.traekkes td { opacity: 0.45; }

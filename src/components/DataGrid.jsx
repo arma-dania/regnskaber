@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { REGNSKABSAFSNIT, validate, synligePoster, postNavn, postTal, laegSammen, fortrydSammenlaegning, flytPost, fortrydFlytning, navneforslag, sammenlaegningsoversigt, flytningsoversigt, visningsfaktor } from '../lib/model.js'
+import Omformningsvejledning from './Omformningsvejledning.jsx'
+import { REGNSKABSAFSNIT, validate, synligePoster, postNavn, postTal, laegSammen, fortrydSammenlaegning, flytPost, fortrydFlytning, navneforslag, sammenlaegningsoversigt, flytningsoversigt, visningsfaktor, opstillingsform } from '../lib/model.js'
 
 const fmt = (n, enhed) => (n == null ? '–' : new Intl.NumberFormat('da-DK', { maximumFractionDigits: /mio/.test(enhed || '') ? 1 : 0 }).format(n))
 
@@ -71,17 +72,11 @@ export default function DataGrid ({ dataset, setDataset }) {
   return (
     <>
       <h2 className="sektion-titel">Regnskabet i analyseform</h2>
+      <Omformningsvejledning opstilling={opstillingsform(dataset)} />
       <p className="sektion-intro">
-        Her står regnskabet præcis, som det er indlæst. Du omformer resultatopgørelsen til
-        analysebrug ved at flytte og lægge poster sammen, hvor du finder det nødvendigt:
-      </p>
-      <ul className="sektion-intro omform-vejledning">
-        <li><strong>Læg sammen:</strong> træk en post ind over en anden. Appen foreslår et navn til den sammenlagte post, som du kan rette.</li>
-        <li><strong>Flyt:</strong> træk en post op eller ned, og slip den mellem to andre poster.</li>
-      </ul>
-      <p className="sektion-intro">
-        Nederst på siden kan du se, hvilke poster der er lagt sammen eller flyttet, og fortryde
-        det. Balancen omformes ikke.
+        Her står regnskabet præcis, som det er indlæst. Omform resultatopgørelsen ved at lægge
+        poster sammen (træk en post ind over en anden) og flytte dem (slip i kanten af en anden
+        post). Nederst på siden kan du se og fortryde det, du har gjort. Balancen omformes ikke.
       </p>
 
       <div className="kort">
@@ -195,7 +190,7 @@ export default function DataGrid ({ dataset, setDataset }) {
               <ul className="sammenlaegninger">
                 {oversigt.map(o => (
                   <li key={o.id}>
-                    <span><strong>{o.navn}</strong> = {o.dele.join(' + ')}</span>
+                    <span><strong>{o.navn}</strong> = {o.udtryk}</span>
                     <button className="knap lys lille" onClick={() => setDataset(d => fortrydSammenlaegning(d, o.id))}>Fortryd</button>
                   </li>
                 ))}
