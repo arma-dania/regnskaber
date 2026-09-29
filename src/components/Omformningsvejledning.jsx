@@ -15,7 +15,7 @@ const ARTSOPDELT = [
   ['Nettoomsætning', 'Lad den stå.'],
   ['Ændring i lagre af færdigvarer og varer under fremstilling', 'Træk den ind over vareforbruget ("Omkostninger til råvarer og hjælpematerialer" eller "Vareforbrug"). En lagerforøgelse trækkes fra vareforbruget, et lagerfald lægges til.'],
   ['Omkostninger til råvarer og hjælpematerialer / Vareforbrug', 'Lad den stå. Det er analyseformens vareforbrug.'],
-  ['Andre driftsindtægter', 'Vurdér, om de hører til den primære drift (fx lejeindtægter, tilskud eller avance ved salg af driftsmidler). Gør de, så træk dem ind over "Andre eksterne omkostninger", så de modregnes i kapacitetsomkostningerne. Er de reelt salg af virksomhedens varer eller ydelser, så træk dem i stedet ind over "Nettoomsætning". Hører de ikke til driften, så lad dem stå – så indgår de ikke i nøgletallene.'],
+  ['Andre driftsindtægter', 'Træk dem ind over "Nettoomsætning", så de indgår i omsætningen. Appen foreslår navnet "Nettoomsætning og andre driftsindtægter".'],
   ['Bruttofortjeneste (fed)', 'Lad den stå. Det er regnskabets egen sum og ikke analyseformens bruttoresultat, fordi andre eksterne omkostninger er trukket fra i den.'],
   ['Personaleomkostninger', 'Lad den stå. Står lønninger, pensioner og andre omkostninger til social sikring som hver sin linje, så træk dem sammen til én post – appen foreslår navnet "Personaleomkostninger".'],
   ['Andre eksterne omkostninger', 'Lad den stå. Det er en kapacitetsomkostning.'],
@@ -32,7 +32,7 @@ const FUNKTIONSOPDELT = [
   ['Bruttoresultat (fed)', 'Lad den stå. Det er regnskabets egen sum.'],
   ['Distributionsomkostninger og administrationsomkostninger', 'Træk den ene ind over den anden. Appen foreslår navnet "Kapacitetsomkostninger".'],
   ['Andre driftsomkostninger', 'Træk dem ind over "Kapacitetsomkostninger".'],
-  ['Andre driftsindtægter', 'Hører de til den primære drift, så træk dem ind over "Kapacitetsomkostninger", så de modregnes. Hører de ikke til driften, så lad dem stå.'],
+  ['Andre driftsindtægter', 'Træk dem ind over "Nettoomsætning", så de indgår i omsætningen.'],
   ['Personaleomkostninger og af- og nedskrivninger i noterne', 'Læg dem ikke til. De er allerede fordelt på produktions-, distributions- og administrationsomkostningerne.'],
   ['Indtægter af kapitalandele i datter- eller associerede virksomheder', 'Træk dem ind over "Finansielle indtægter".'],
   ['Finansielle indtægter og omkostninger samt skat', 'Lad dem stå.']
@@ -76,7 +76,7 @@ export default function Omformningsvejledning ({ opstilling }) {
       <h4>Sådan gør du i tabellen</h4>
       <ul>
         <li><strong>Læg sammen:</strong> træk en post ind over midten af en anden post. Den post, du trækker, forsvinder, og den post, du slipper på, får den samlede værdi. Appen foreslår et navn, som du kan rette.</li>
-        <li><strong>Indtægt mod omkostning:</strong> trækker du en indtægt ind over en omkostning (eller omvendt), bliver den trukket fra – fx bliver andre driftsindtægter trukket fra andre eksterne omkostninger.</li>
+        <li><strong>Indtægt mod omkostning:</strong> trækker du en indtægt ind over en omkostning (eller omvendt), bliver den trukket fra – fx bliver en lagerforøgelse ("Ændring i lagre af færdigvarer og varer under fremstilling") trukket fra vareforbruget.</li>
         <li><strong>Flyt:</strong> slip posten i den øverste eller nederste kant af en anden post.</li>
         <li><strong>Mellemresultater:</strong> regnskabets egne summer står med fed (fx bruttofortjeneste og resultat før skat). Dem skal du ikke lægge sammen med noget.</li>
         <li><strong>Fortryd:</strong> nederst på siden står alle sammenlægninger og flytninger, som hver kan fortrydes.</li>
