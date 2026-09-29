@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ImportPanel from './components/ImportPanel.jsx'
 import DataGrid from './components/DataGrid.jsx'
 import NogletalKort from './components/NogletalKort.jsx'
@@ -47,6 +47,12 @@ export default function App () {
   })
   const [cvr, setCvr] = useState('')
   const [traf, setTraf] = useState(null)
+
+  // Er der gemt regnskaber fra et tidligere besøg, fortsætter man med dem —
+  // men det skal være tydeligt, så ingen tror, det er et nyt, tomt skema.
+  const startFund = useRef(fund)
+  const [genoptaget, setGenoptaget] = useState(() => fund.length > 0)
+  useEffect(() => { if (fund !== startFund.current) setGenoptaget(false) }, [fund])
 
   useEffect(() => {
     try { localStorage.setItem(NOEGLE, JSON.stringify(dataset)) } catch { /* fx privat browsing */ }
@@ -98,6 +104,7 @@ export default function App () {
 
   function nulstil () {
     if (!confirm('Alle indtastede tal slettes. Fortsæt?')) return
+    setGenoptaget(false)
     setDataset(emptyDataset())
     setFund([])
     setCvr('')
@@ -135,6 +142,18 @@ export default function App () {
       </header>
 
       <main>
+        {genoptaget && (
+          <div className="besked genoptaget">
+            <span>
+              Du fortsætter med <strong>{dataset.virksomhed || 'de tidligere indlæste regnskaber'}</strong>, som
+              blev indlæst sidst. Dine sammenlægninger og flytninger er gemt.
+            </span>
+            <span className="genoptaget-knapper">
+              <button className="knap lys lille" onClick={() => setGenoptaget(false)}>Fortsæt</button>
+              <button className="knap primaer lille" onClick={nulstil}>Start forfra</button>
+            </span>
+          </div>
+        )}
         {kvittering && <div className="besked">{kvittering}</div>}
 
         {trin === 0 && <Velkomstside gaaTilTrin={skiftTrin} />}

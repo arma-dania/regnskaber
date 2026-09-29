@@ -133,6 +133,8 @@ input[type="text"], input[type="url"], select {
 .filfelt p { margin: 6px 0 0; color: var(--daempet); font-size: 13px; }
 
 .besked { border-left: 3px solid var(--petrol); background: var(--petrol-lys); padding: 10px 14px; font-size: 13px; border-radius: 0 var(--radius) var(--radius) 0; margin: 12px 0; }
+.besked.genoptaget { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.genoptaget-knapper { display: flex; gap: 8px; }
 .besked.fejl { border-color: var(--ned); background: #fbeceb; }
 .besked.advarsel { border-color: var(--okker); background: #fbf4e6; }
 
