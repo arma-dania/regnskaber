@@ -112,6 +112,15 @@ selv disse fire poster sammen. Det er et bedste bud på taksonomiens navne for
 enkeltposterne, så tjek tallet mod regnskabets note om personaleomkostninger, hvis det er
 muligt.
 
+**Samme enhed i alle år.** Hvert indlæst regnskab regnes om til kroner, før
+årene fordeles (`src/lib/enheder.js`). Derefter holdes de år, der står i to
+regnskaber, op mod hinanden (balancesum, omsætning, egenkapital). Afviger de
+med en faktor 1.000 eller 1.000.000, er enheden gættet forkert, og regnskabet
+rettes – et XBRL-regnskab regnes for sikkert, ellers rettes det ældste til det
+nyeste – og der vises en besked. Andre afvigelser i balancesummen vises som en
+advarsel. En PDF's enhed gættes ud fra linjer som "Beløb i t.kr." og ikke ud
+fra første omtale af fx "mio. kr." i teksten.
+
 ## Flyt og læg poster sammen
 
 På trin 2 (Analyseform) kan poster inden for samme afsnit trækkes ind over hinanden for at
@@ -167,6 +176,7 @@ src/lib/model.js        Regnskabet i analyseform, afledte poster, kontrol af bal
 src/lib/nogletal.js     De 28 nøgletal: formler, beregning, forklaringer
 src/lib/pdfImport.js    Tekstudtræk og genkendelse af poster i PDF
 src/lib/fordeling.js    Fordeling af fire balancedatoer på tre år plus primo
+src/lib/enheder.js      Samme enhed i alle år: omregning, kontrol og rettelse
 src/lib/ixbrlImport.js  Mapping fra fsa- og ifrs-full-taksonomien til analyseformen
 src/lib/exportExcel.js  Fire ark: analyseform, nøgletal, beregningsgrundlag, definitioner
 src/lib/exportWord.js   Rapport med tabeller, grafer og kommentarfelter
