@@ -4,7 +4,7 @@ import {
 } from 'docx'
 import { saveAs } from 'file-saver'
 import { omformetRegnskab, sammenlaegningsoversigt, flytningsoversigt } from './model.js'
-import { nogletalFor, beregnesPaaBrutto, procentvisAendring, formatAendring, OMRAADER, beregnAlle, formatVaerdi } from './nogletal.js'
+import { nogletalFor, beregnesPaaBrutto, procentvisAendring, formatAendring, OMRAADER, beregnAlle, formatVaerdi, byggIndeksNogletal } from './nogletal.js'
 import { filnavn } from './exportExcel.js'
 import { hentAlleGrafer } from './chartImage.js'
 
@@ -40,7 +40,9 @@ function afsnit (tekst, opts = {}) {
 
 export async function hentWord (dataset, { medGrafer = true } = {}) {
   const aarNavne = dataset.aar.map((y, i) => y.label || `År ${i + 1}`)
-  const resultater = beregnAlle(dataset)
+  // De afkrydsede indekstal kommer med – i tabellen og som grafer.
+  const ekstra = byggIndeksNogletal(dataset)
+  const resultater = beregnAlle(dataset, ekstra)
   const grafer = medGrafer ? await hentAlleGrafer() : {}
 
   const boernForside = [
@@ -87,7 +89,9 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
   const nogletalBoern = [new Paragraph({ children: [new PageBreak()] }),
     new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'De 28 nøgletal', spacing: { after: 160 } })]
 
-  OMRAADER.forEach(o => {
+  const omraader = [...OMRAADER, ...(ekstra.length ? [{ id: 'indeks', title: 'Indekstal' }] : [])]
+  const alleNogletal = [...nogletalFor(dataset), ...ekstra]
+  omraader.forEach(o => {
     nogletalBoern.push(new Paragraph({ heading: HeadingLevel.HEADING_2, text: o.title, spacing: { before: 280, after: 120 } }))
     const raekker = [new TableRow({
       children: [
@@ -97,10 +101,10 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
         celle('Ændring i %', { fed: true, skygge: true, hoejre: true, bredde: 16 })
       ]
     })]
-    nogletalFor(dataset).filter(n => n.omraade === o.id).forEach(n => {
+    alleNogletal.filter(n => n.omraade === o.id).forEach(n => {
       raekker.push(new TableRow({
         children: [
-          celle(n.nr, { hoejre: true }),
+          celle(n.visNr ?? n.nr, { hoejre: true }),
           celle(n.navn),
           ...resultater.map(r => celle(formatVaerdi(n, r[n.nr].value, dataset.enhed), { hoejre: true })),
           celle(formatAendring(procentvisAendring(resultater, n.nr)), { hoejre: true })
@@ -115,10 +119,10 @@ export async function hentWord (dataset, { medGrafer = true } = {}) {
     new Paragraph({ heading: HeadingLevel.HEADING_1, text: 'Nøgletal enkeltvis', spacing: { after: 120 } }),
     afsnit('Hvert nøgletal står med definition, tal for de tre år og en graf. Feltet "Kommentar" er tomt med vilje – analysen skriver du selv.', { color: '5A6570' })]
 
-  nogletalFor(dataset).forEach(n => {
+  alleNogletal.forEach(n => {
     detaljer.push(new Paragraph({
       heading: HeadingLevel.HEADING_3,
-      text: `${n.nr}. ${n.navn}`,
+      text: `${n.visNr ?? n.nr}. ${n.navn}`,
       spacing: { before: 280, after: 80 }
     }))
     detaljer.push(new Paragraph({
